@@ -81,28 +81,49 @@ export default function PlanosPage() {
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
       <div>
-        <span className="text-xs font-bold tracking-wide text-primary">PLANOS</span>
-        <h1 className="text-2xl font-bold mt-2 mb-1">Assinatura</h1>
+        <div className="flex items-center gap-2 mb-2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2">
+            <rect x="2" y="5" width="20" height="14" rx="2.5" />
+          </svg>
+          <span className="text-xs font-bold tracking-wide text-primary">
+            {activeSub ? "ASSINATURA" : "PLANOS"}
+          </span>
+        </div>
+        <h1 className="text-2xl font-bold mb-1">{activeSub ? "Plano ativo" : "Assinatura"}</h1>
         <p className="text-text2 text-sm">
-          Assine para liberar a marcação de operações nos eventos monitorados.
+          {activeSub
+            ? "Gerencie sua assinatura Nexus Tips."
+            : "Assine para liberar a marcação de operações nos eventos monitorados."}
         </p>
       </div>
 
       {activeSub ? (
-        <div className="card p-6 flex items-center justify-between">
-          <div>
-            <div className="text-sm font-bold">
-              Plano atual: {PLANOS[activeSub.plano].label}
+        <div className="card p-8 max-w-md border-success/35">
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="text-xs font-bold tracking-wide text-success">PLANO ATIVO</div>
+              <div className="text-lg font-bold mt-2">{PLANOS[activeSub.plano].label}</div>
             </div>
-            <div className="text-xs text-text2 mt-1">
-              R$ {activeSub.valor.toFixed(2)} · ativa desde{" "}
-              {new Date(activeSub.created_at).toLocaleDateString("pt-BR")}
-            </div>
+            <span className="bg-success/15 text-success text-[11px] font-bold px-3 py-1.5 rounded-md">
+              ATIVA
+            </span>
           </div>
+          <div className="font-mono text-[28px] font-semibold mt-4">
+            R$ {activeSub.valor.toFixed(2)}
+            <span className="text-[13px] text-muted font-sans">/{activeSub.plano === "mensal" ? "mês" : activeSub.plano === "semestral" ? "6 meses" : "ano"}</span>
+          </div>
+          <div className="text-xs text-text2 mt-2.5">
+            Ativa desde {new Date(activeSub.created_at).toLocaleDateString("pt-BR")}
+          </div>
+          {activeSub.plano === "mensal" && (
+            <div className="text-[11px] text-muted mt-1">
+              Quer pagar menos? O plano anual sai por R$ 58,16/mês — economize R$ 476,90 no ano.
+            </div>
+          )}
           <button
             onClick={cancelar}
             disabled={busy === "cancelar"}
-            className="btn-outline text-xs px-4 py-2.5 border-danger text-danger disabled:opacity-40"
+            className="btn-outline w-full mt-6 text-[13.5px] py-3 border-danger text-danger disabled:opacity-40"
           >
             {busy === "cancelar" ? "Cancelando…" : "Cancelar assinatura"}
           </button>
