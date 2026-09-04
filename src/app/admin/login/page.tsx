@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Logo } from "@/components/Logo";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -51,8 +52,8 @@ export default function AdminLoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-bg">
       <form onSubmit={handleSubmit} className="w-full max-w-sm flex flex-col gap-5 p-10">
         <div>
-          <span className="font-bold text-sm tracking-wide">NEXUS TIPS</span>
-          <h1 className="text-xl font-bold mt-3">Acesso administrativo</h1>
+          <Logo size={28} />
+          <h1 className="text-xl font-bold mt-4">Acesso administrativo</h1>
           <p className="text-text2 text-sm mt-1">Restrito à equipe Nexus Tips.</p>
         </div>
 
