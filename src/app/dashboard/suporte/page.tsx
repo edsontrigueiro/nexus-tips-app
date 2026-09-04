@@ -126,8 +126,13 @@ export default function SuportePage() {
     <div className="flex gap-6 max-w-5xl">
       <div className="w-72 flex-none flex flex-col gap-4">
         <div>
-          <span className="text-xs font-bold tracking-wide text-primary">SUPORTE</span>
-          <h1 className="text-xl font-bold mt-2 mb-1">Seus chamados</h1>
+          <div className="flex items-center gap-2 mb-2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2">
+              <path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 20l1-5.4A8.5 8.5 0 1 1 21 11.5z" />
+            </svg>
+            <span className="text-xs font-bold tracking-wide text-primary">SUPORTE</span>
+          </div>
+          <h1 className="text-xl font-bold mb-1">Seus chamados</h1>
         </div>
 
         <form onSubmit={criarTicket} className="card p-4 flex flex-col gap-2.5">
@@ -150,6 +155,14 @@ export default function SuportePage() {
             {creating ? "Enviando…" : "Abrir chamado"}
           </button>
         </form>
+
+        <div className="flex items-center gap-2 text-muted text-[11px] px-1">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3.5 2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Tempo médio de resposta: algumas horas, todos os dias.
+        </div>
 
         <div className="flex flex-col gap-2">
           {loading ? (
