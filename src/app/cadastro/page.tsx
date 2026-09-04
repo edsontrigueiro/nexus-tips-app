@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { Logo } from "@/components/Logo";
 
 export default function CadastroPage() {
   const router = useRouter();
@@ -54,8 +55,8 @@ export default function CadastroPage() {
       {/* PAINEL DE MARCA */}
       <div className="hidden md:flex flex-1 relative bg-gradient-to-br from-bg2 to-bg border-r border-border p-12 flex-col justify-between overflow-hidden">
         <div className="absolute -top-16 -left-16 w-80 h-80 bg-primary opacity-20 blur-[80px] rounded-full" />
-        <div className="relative flex items-center gap-2">
-          <span className="font-bold text-sm tracking-wide">NEXUS TIPS</span>
+        <div className="relative">
+          <Logo size={30} />
         </div>
         <div className="relative max-w-md">
           <h1 className="text-3xl font-bold leading-tight mb-4">
