@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Logo } from "@/components/Logo";
 
 const LINKS = [
   { href: "/admin", label: "Visão geral" },
@@ -26,8 +27,8 @@ export function AdminSidebar({ name }: { name: string }) {
   return (
     <div className="w-64 flex-none bg-gradient-to-b from-bg2 to-[#060D1C] border-r border-border flex flex-col">
       <div className="p-6 pb-4">
-        <span className="font-bold text-sm tracking-wide">NEXUS TIPS</span>
-        <div className="text-[10px] font-bold text-primary tracking-wide mt-0.5">ADMIN</div>
+        <Logo size={26} />
+        <div className="text-[10px] font-bold text-primary tracking-wide mt-1.5">ADMIN</div>
       </div>
 
       <div className="flex-1 px-3.5 flex flex-col gap-1">
