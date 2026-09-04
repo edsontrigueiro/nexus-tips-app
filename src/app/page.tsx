@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PLANOS } from "@/lib/types";
+import { Logo } from "@/components/Logo";
 
 const DEMO_SIGNALS = [
   {
@@ -86,11 +87,8 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-bg text-text">
       {/* NAV */}
-      <div className="flex items-center justify-between px-8 md:px-16 py-5 border-b border-border">
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-bold text-[17px] tracking-wide">NEXUS</span>
-          <span className="text-sm tracking-[3px] text-text2">TIPS</span>
-        </div>
+      <div className="flex items-center justify-between px-8 md:px-16 py-5 border-b border-border sticky top-0 z-20 bg-bg/90 backdrop-blur">
+        <Logo size={30} />
         <div className="flex items-center gap-3.5">
           <Link href="/login" className="text-text2 hover:text-text text-sm font-semibold px-4 py-2.5">
             Entrar
