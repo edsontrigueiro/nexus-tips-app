@@ -8,6 +8,7 @@ export interface Profile {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   role: Role;
   time_coracao: string | null;
   banca_inicial: number | null;
