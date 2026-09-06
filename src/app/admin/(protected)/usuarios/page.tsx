@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile, Subscription } from "@/lib/types";
+import { AdminUserModal } from "@/components/AdminUserModal";
 
 export default function AdminUsuariosPage() {
   const supabase = createClient();
@@ -10,6 +11,7 @@ export default function AdminUsuariosPage() {
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Profile | null>(null);
 
   useEffect(() => {
     const channels: ReturnType<typeof supabase.channel>[] = [];
@@ -88,10 +90,17 @@ export default function AdminUsuariosPage() {
           {filtered.map((u) => {
             const ativo = subs.some((s) => s.user_id === u.id);
             return (
-              <div key={u.id} className="card p-4 flex items-center justify-between">
+              <button
+                key={u.id}
+                onClick={() => setSelected(u)}
+                className="card p-4 flex items-center justify-between text-left transition-colors hover:border-primary/40"
+              >
                 <div>
                   <div className="text-sm font-semibold">{u.name || "Sem nome"}</div>
                   <div className="text-xs text-text2">{u.email}</div>
+                  <div className="text-[11px] text-muted mt-0.5">
+                    {u.phone || "Telefone não informado"}
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span
@@ -112,7 +121,7 @@ export default function AdminUsuariosPage() {
                     {new Date(u.created_at).toLocaleDateString("pt-BR")}
                   </span>
                 </div>
-              </div>
+              </button>
             );
           })}
           {filtered.length === 0 && (
@@ -120,6 +129,8 @@ export default function AdminUsuariosPage() {
           )}
         </div>
       )}
+
+      {selected && <AdminUserModal user={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }
