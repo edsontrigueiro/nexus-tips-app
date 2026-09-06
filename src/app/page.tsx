@@ -114,7 +114,7 @@ export default function LandingPage() {
           <p className="text-text2 text-base md:text-[17px] leading-relaxed max-w-lg">
             A Nexus Tips monitora eventos, organiza contexto e mostra o porquê de cada sinal —
             você decide com clareza, gerencia sua própria banca e acompanha sua performance em
-            tempo real. Nenhum &quot;green garantido&quot;. Só dados, de forma honesta.
+            tempo real, com o histórico completo sempre visível.
           </p>
           <div className="flex flex-wrap gap-3.5 items-center mt-1.5">
             <Link href="/cadastro" className="btn-primary text-[15px] px-6 py-3.5">
@@ -212,26 +212,37 @@ export default function LandingPage() {
 
       {/* PERFORMANCE */}
       <div className="px-8 md:px-16 py-10">
-        <div className="card p-8 flex flex-col md:flex-row gap-10 items-center">
-          <div className="flex-none">
-            <div className="text-xs font-semibold tracking-wide text-text2">
-              PERFORMANCE ACUMULADA
+        <h2 className="text-[23px] font-bold mb-1.5">Performance, sem caixa-preta</h2>
+        <p className="text-text2 text-sm mb-6">
+          Números calculados sobre os sinais publicados e encerrados na plataforma nos
+          últimos 30 dias — sem projeção, sem promessa.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4.5">
+          <div className="card p-6">
+            <div className="text-xs font-semibold text-text2">ASSERTIVIDADE · 30 DIAS</div>
+            <div className="text-[11px] text-muted mt-1">
+              % de sinais encerrados como green.
             </div>
-            <div className="font-mono text-4xl font-semibold text-success mt-2">+18.4%</div>
-            <div className="text-xs text-muted mt-3.5">Assertividade — 30 dias</div>
-            <div className="font-mono text-xl font-semibold mt-1">94.8%</div>
+            <div className="font-mono text-3xl font-semibold text-success mt-3">94.8%</div>
           </div>
-          <svg viewBox="0 0 500 140" className="flex-1 h-[140px] w-full">
-            <polyline
-              points="10,110 70,95 130,102 190,55 250,68 310,40 370,48 430,15 480,10"
-              fill="none"
-              stroke="#2563EB"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="480" cy="10" r="4.5" fill="#2563EB" />
-          </svg>
+          <div className="card p-6">
+            <div className="text-xs font-semibold text-text2">SINAIS PUBLICADOS · 30 DIAS</div>
+            <div className="text-[11px] text-muted mt-1">
+              Volume de análises entregues no período.
+            </div>
+            <div className="font-mono text-3xl font-semibold mt-3">142</div>
+          </div>
+          <div className="card p-6">
+            <div className="text-xs font-semibold text-text2">GREENS / REDS · 30 DIAS</div>
+            <div className="text-[11px] text-muted mt-1">
+              Resultado bruto de tudo que foi encerrado.
+            </div>
+            <div className="font-mono text-3xl font-semibold mt-3">
+              <span className="text-success">121</span>
+              <span className="text-muted text-lg"> / </span>
+              <span className="text-danger">21</span>
+            </div>
+          </div>
         </div>
       </div>
 
