@@ -6,12 +6,23 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/Logo";
 
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
 export default function CadastroPage() {
   const router = useRouter();
   const supabase = createClient();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,6 +40,11 @@ export default function CadastroPage() {
       setError("A senha precisa ter pelo menos 8 caracteres.");
       return;
     }
+    const phoneDigits = phone.replace(/\D/g, "");
+    if (phoneDigits.length < 10) {
+      setError("Informe um telefone válido, com DDD.");
+      return;
+    }
 
     setLoading(true);
     // Isso cria o usuário em auth.users. O trigger `handle_new_user` (veja a migration)
@@ -37,7 +53,7 @@ export default function CadastroPage() {
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: { data: { name, phone } },
     });
     setLoading(false);
 
@@ -96,6 +112,17 @@ export default function CadastroPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="voce@email.com"
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-text2">Telefone</label>
+            <input
+              type="tel"
+              className="input-field"
+              value={phone}
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
+              placeholder="(11) 91234-5678"
               required
             />
           </div>
