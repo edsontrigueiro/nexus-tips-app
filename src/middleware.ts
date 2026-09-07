@@ -2,7 +2,8 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Roda em toda request: (1) refresca a sessão do Supabase nos cookies, (2) protege
-// /dashboard/* (precisa estar logado) e /admin/* (precisa estar logado E ser admin).
+// /dashboard/* (precisa estar logado e com a conta ativa) e /admin/* (precisa estar
+// logado, ser admin, e com a conta ativa).
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
 
@@ -36,16 +37,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  if (isDashboardRoute && user) {
+    const { data: profile } = await supabase.from("profiles").select("ativo").eq("id", user.id).single();
+    // Conta desativada pelo admin: derruba a sessão na hora, mesmo que o cookie de
+    // login ainda esteja válido — sem isso, quem foi desativado continuava navegando
+    // normalmente até o token expirar sozinho.
+    if (profile && profile.ativo === false) {
+      await supabase.auth.signOut();
+      return NextResponse.redirect(new URL("/login?desativado=1", request.url));
+    }
+  }
+
   if (isAdminRoute) {
     if (!user) {
       return NextResponse.redirect(new URL("/admin/login", request.url));
     }
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, ativo")
       .eq("id", user.id)
       .single();
-    if (profile?.role !== "admin") {
+    if (profile?.role !== "admin" || profile?.ativo === false) {
       return NextResponse.redirect(new URL("/admin/login", request.url));
     }
   }
