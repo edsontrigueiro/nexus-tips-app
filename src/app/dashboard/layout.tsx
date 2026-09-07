@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
+import { OnboardingTutorial } from "@/components/OnboardingTutorial";
 
 export default async function DashboardLayout({
   children,
@@ -32,6 +33,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen flex bg-bg text-text">
+      <OnboardingTutorial />
       <DashboardSidebar name={profile?.name || user.email || "Você"} subscribed={!!activeSub} />
       <div className="flex-1 flex flex-col">
         <div className="h-16 flex-none flex items-center justify-end px-8 border-b border-border">
