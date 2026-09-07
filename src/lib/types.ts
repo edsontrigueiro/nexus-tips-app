@@ -33,6 +33,7 @@ export interface Subscription {
 }
 
 export type SignalStatus = "no_ar" | "green" | "red";
+export type SignalTipo = "simples" | "bilhete";
 
 export interface Signal {
   id: string;
@@ -45,7 +46,22 @@ export interface Signal {
   rationale: string | null;
   status: SignalStatus;
   live: boolean;
+  tipo: SignalTipo;
   published_by: string | null;
+  created_at: string;
+}
+
+// Um jogo dentro de um bilhete (sinal com tipo "bilhete"). Só existe quando o sinal
+// combina múltiplos jogos — um sinal "simples" não tem nenhuma linha aqui.
+export interface SignalLeg {
+  id: string;
+  signal_id: string;
+  competicao: string;
+  time_a: string;
+  time_b: string;
+  mercado: string;
+  odd: number;
+  ordem: number;
   created_at: string;
 }
 
