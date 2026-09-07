@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import type { Signal, Operation } from "@/lib/types";
+import type { Signal, SignalLeg, Operation } from "@/lib/types";
 
+type SignalRow = Signal & { signal_legs: SignalLeg[] };
 type Filtro = "todos" | "vivo" | "encerrados";
 
 export default function EventosPage() {
   const supabase = createClient();
-  const [signals, setSignals] = useState<Signal[]>([]);
+  const [signals, setSignals] = useState<SignalRow[]>([]);
   const [operations, setOperations] = useState<Operation[]>([]);
   const [subscribed, setSubscribed] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -21,6 +22,14 @@ export default function EventosPage() {
   useEffect(() => {
     let signalsChannel: ReturnType<typeof supabase.channel> | null = null;
     let operationsChannel: ReturnType<typeof supabase.channel> | null = null;
+
+    async function reloadSignals() {
+      const { data } = await supabase
+        .from("signals")
+        .select("*, signal_legs(*)")
+        .order("created_at", { ascending: false });
+      setSignals((data as SignalRow[]) || []);
+    }
 
     async function init() {
       const {
@@ -38,11 +47,7 @@ export default function EventosPage() {
         .maybeSingle();
       setSubscribed(!!activeSub);
 
-      const { data: signalsData } = await supabase
-        .from("signals")
-        .select("*")
-        .order("created_at", { ascending: false });
-      setSignals(signalsData || []);
+      await reloadSignals();
 
       const { data: opsData } = await supabase
         .from("operations")
@@ -52,30 +57,15 @@ export default function EventosPage() {
 
       setLoading(false);
 
-      // Assim que o admin publica um sinal (INSERT em `signals`), esse canal recebe o
-      // evento em tempo real e a lista abaixo atualiza sozinha — sem refresh da página.
+      // Assim que o admin publica ou atualiza um sinal, esse canal recebe o evento em tempo
+      // real. Um bilhete tem jogos numa tabela à parte (signal_legs), que o payload de
+      // `signals` não carrega — por isso, em vez de tentar remontar o objeto na mão, a
+      // gente só recarrega a lista inteira com o join. Simples e sempre correto.
       signalsChannel = supabase
         .channel("eventos-signals")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "signals" },
-          (payload) => {
-            setSignals((prev) => {
-              if (payload.eventType === "INSERT") {
-                return [payload.new as Signal, ...prev];
-              }
-              if (payload.eventType === "UPDATE") {
-                return prev.map((s) =>
-                  s.id === (payload.new as Signal).id ? (payload.new as Signal) : s
-                );
-              }
-              if (payload.eventType === "DELETE") {
-                return prev.filter((s) => s.id !== (payload.old as Signal).id);
-              }
-              return prev;
-            });
-          }
-        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "signals" }, () => {
+          reloadSignals();
+        })
         .subscribe();
 
       operationsChannel = supabase
@@ -233,24 +223,53 @@ export default function EventosPage() {
           {filteredSignals.map((signal) => {
             const alreadyMarked = operations.some((o) => o.signal_id === signal.id);
             const expanded = expandedId === signal.id;
+            const isBilhete = signal.tipo === "bilhete";
+            const legs = (signal.signal_legs || []).slice().sort((a, b) => a.ordem - b.ordem);
+
             return (
               <div key={signal.id} className="card p-5">
                 <div className="flex items-start justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       {signal.live && <span className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse" />}
+                      {isBilhete && (
+                        <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                          BILHETE
+                        </span>
+                      )}
                       <span className="text-[10px] text-muted font-semibold tracking-wide">
                         {signal.competicao}
                       </span>
                     </div>
-                    <div className="text-sm font-bold mt-1">
-                      {signal.time_a} x {signal.time_b}
-                    </div>
-                    <div className="text-xs text-text2 mt-1">
-                      <span className="font-semibold text-text">{signal.mercado}</span>
-                    </div>
+
+                    {isBilhete ? (
+                      <>
+                        <div className="text-sm font-bold mt-1">{legs.length} jogos combinados</div>
+                        <div className="flex flex-col gap-1 mt-2">
+                          {legs.map((leg) => (
+                            <div key={leg.id} className="text-xs text-text2">
+                              <span className="font-semibold text-text">
+                                {leg.time_a} x {leg.time_b}
+                              </span>{" "}
+                              <span className="text-muted">
+                                · {leg.mercado} · ODD {leg.odd}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-sm font-bold mt-1">
+                          {signal.time_a} x {signal.time_b}
+                        </div>
+                        <div className="text-xs text-text2 mt-1">
+                          <span className="font-semibold text-text">{signal.mercado}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <div className="flex flex-col items-end gap-1.5">
+                  <div className="flex-none flex flex-col items-end gap-1.5">
                     <span
                       className={`text-[10px] font-bold tracking-wide rounded-full px-2.5 py-1 border whitespace-nowrap ${
                         statusColor[signal.status]
@@ -298,6 +317,8 @@ export default function EventosPage() {
                       ? "Operação marcada ✓"
                       : marking === signal.id
                       ? "Marcando…"
+                      : isBilhete
+                      ? "Marcar bilhete"
                       : "Marcar operação"}
                   </button>
                 </div>
