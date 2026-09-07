@@ -12,6 +12,7 @@ export interface Profile {
   role: Role;
   time_coracao: string | null;
   banca_inicial: number | null;
+  tutorial_completo: boolean;
   created_at: string;
 }
 
