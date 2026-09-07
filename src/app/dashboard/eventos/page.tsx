@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Signal, Operation } from "@/lib/types";
 
@@ -145,27 +146,65 @@ export default function EventosPage() {
     return true;
   });
 
+  const header = (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2">
+          <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" strokeLinejoin="round" />
+        </svg>
+        <span className="text-xs font-bold tracking-wide text-primary">EVENTOS</span>
+      </div>
+      <h1 className="text-2xl font-bold mb-1">Sinais monitorados</h1>
+      <p className="text-text2 text-sm">
+        Atualiza automaticamente assim que um novo sinal é publicado.
+      </p>
+    </div>
+  );
+
+  if (!loading && !subscribed) {
+    return (
+      <div className="flex flex-col gap-5 max-w-3xl">
+        {header}
+        <div className="relative">
+          <div
+            className="flex flex-col gap-3 blur-[5px] opacity-40 pointer-events-none"
+            aria-hidden
+          >
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="card p-5">
+                <div className="text-[10px] text-muted font-semibold tracking-wide">
+                  COMPETIÇÃO · HOJE
+                </div>
+                <div className="text-sm font-bold mt-1">Time A x Time B</div>
+                <div className="text-xs text-text2 mt-1">Mercado monitorado</div>
+              </div>
+            ))}
+          </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6">
+            <div className="w-11 h-11 rounded-full bg-elevated border border-border flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA8BC" strokeWidth="2">
+                <rect x="5" y="11" width="14" height="9" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div>
+              <div className="font-bold text-base">Eventos travados</div>
+              <p className="text-text2 text-sm mt-1 max-w-xs">
+                Assine um plano para liberar os eventos monitorados em tempo real.
+              </p>
+            </div>
+            <Link href="/dashboard/planos" className="btn-primary text-sm px-5 py-2.5">
+              Ver planos de assinatura
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5 max-w-3xl">
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2">
-            <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" strokeLinejoin="round" />
-          </svg>
-          <span className="text-xs font-bold tracking-wide text-primary">EVENTOS</span>
-        </div>
-        <h1 className="text-2xl font-bold mb-1">Sinais monitorados</h1>
-        <p className="text-text2 text-sm">
-          Atualiza automaticamente assim que um novo sinal é publicado.
-        </p>
-      </div>
-
-      {!subscribed && (
-        <div className="card p-4 border-warning/40 bg-warning/5 text-sm text-text2">
-          Sua conta é gratuita — você pode ver os sinais, mas precisa de uma assinatura
-          ativa para marcar operações.
-        </div>
-      )}
+      {header}
 
       <div className="inline-flex bg-surface border border-border rounded-[10px] p-1 w-fit">
         {filtros.map((f) => (
@@ -252,7 +291,7 @@ export default function EventosPage() {
                 <div className="flex justify-end pt-3 mt-3 border-t border-border">
                   <button
                     onClick={() => marcarOperacao(signal)}
-                    disabled={!subscribed || alreadyMarked || marking === signal.id}
+                    disabled={alreadyMarked || marking === signal.id}
                     className="btn-primary text-xs px-4 py-2 disabled:opacity-40"
                   >
                     {alreadyMarked
