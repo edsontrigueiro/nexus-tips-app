@@ -397,7 +397,10 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
                         {o.signals.time_a} x {o.signals.time_b}
                       </div>
                       <div className="text-xs text-text2 mt-0.5">
-                        {o.signals.mercado} · ODD {o.signals.odd} · R$ {o.valor}
+                        {o.signals.mercado} · ODD {o.odd_obtida ?? o.signals.odd} · R$ {o.valor}
+                        {o.odd_obtida != null && o.odd_obtida !== o.signals.odd && (
+                          <span className="text-muted"> (sinal: {o.signals.odd})</span>
+                        )}
                       </div>
                     </div>
                     <span
