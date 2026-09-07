@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/admin/usuarios", label: "Usuários" },
   { href: "/admin/assinaturas", label: "Assinaturas" },
   { href: "/admin/suporte", label: "Suporte" },
+  { href: "/admin/configuracoes", label: "Configurações" },
 ];
 
 export function AdminSidebar({ name }: { name: string }) {
