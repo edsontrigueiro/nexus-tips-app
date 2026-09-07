@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Profile, Subscription, Operation, Signal, SupportTicket } from "@/lib/types";
+import type { Profile, Subscription, Operation, Signal, SupportTicket, Plano } from "@/lib/types";
 import { PLANOS } from "@/lib/types";
 
 type Tab = "resumo" | "assinaturas" | "operacoes" | "suporte";
@@ -35,6 +35,25 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
   const [ops, setOps] = useState<OperationRow[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
 
+  // Cópia local do que o admin pode alterar aqui dentro (ativo/plano). O `user` que
+  // chega por prop é um snapshot do momento em que a lista foi clicada — se a gente só
+  // lesse `user.ativo`, o modal ficaria com informação desatualizada depois da própria
+  // ação do admin, até a lista de fora recarregar.
+  const [contaAtiva, setContaAtiva] = useState(user.ativo);
+  const [salvandoConta, setSalvandoConta] = useState(false);
+  const [novoPlano, setNovoPlano] = useState<Plano>("mensal");
+  const [salvandoPlano, setSalvandoPlano] = useState(false);
+  const [planoErro, setPlanoErro] = useState<string | null>(null);
+
+  async function loadSubs() {
+    const { data } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    setSubs(data || []);
+  }
+
   useEffect(() => {
     async function load() {
       const [subsRes, opsRes, ticketsRes] = await Promise.all([
@@ -61,6 +80,54 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
     }
     load();
   }, [supabase, user.id]);
+
+  async function toggleContaAtiva() {
+    setSalvandoConta(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ ativo: !contaAtiva })
+      .eq("id", user.id);
+    setSalvandoConta(false);
+    if (!error) setContaAtiva(!contaAtiva);
+  }
+
+  async function ativarPlano() {
+    setSalvandoPlano(true);
+    setPlanoErro(null);
+
+    if (assinaturaAtiva) {
+      await supabase
+        .from("subscriptions")
+        .update({ status: "cancelada", canceled_at: new Date().toISOString() })
+        .eq("id", assinaturaAtiva.id);
+    }
+
+    const { error } = await supabase.from("subscriptions").insert({
+      user_id: user.id,
+      plano: novoPlano,
+      valor: PLANOS[novoPlano].valor,
+      status: "ativa",
+      provider: "manual",
+    });
+
+    setSalvandoPlano(false);
+    if (error) {
+      setPlanoErro("Não deu pra ativar o plano. Tente de novo.");
+      return;
+    }
+    await loadSubs();
+  }
+
+  async function cancelarAssinatura() {
+    if (!assinaturaAtiva) return;
+    setSalvandoPlano(true);
+    await supabase
+      .from("subscriptions")
+      .update({ status: "cancelada", canceled_at: new Date().toISOString() })
+      .eq("id", assinaturaAtiva.id);
+    setSalvandoPlano(false);
+    await loadSubs();
+  }
 
   const assinaturaAtiva = subs.find((s) => s.status === "ativa");
   const settled = ops.filter((o) => o.status !== "andamento");
@@ -104,19 +171,37 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
                     ADMIN
                   </span>
                 )}
+                {!contaAtiva && (
+                  <span className="text-[10px] font-bold tracking-wide rounded-full px-2.5 py-1 border bg-danger/10 border-danger text-danger">
+                    CONTA DESATIVADA
+                  </span>
+                )}
               </div>
               <div className="text-xs text-text2 mt-1.5">{user.email}</div>
               <div className="text-xs text-muted mt-0.5">
                 {user.phone || "Telefone não informado"}
               </div>
             </div>
-            <button
-              onClick={onClose}
-              aria-label="Fechar"
-              className="text-muted hover:text-text2 text-xl leading-none px-1"
-            >
-              ×
-            </button>
+            <div className="flex-none flex items-center gap-2">
+              <button
+                onClick={toggleContaAtiva}
+                disabled={salvandoConta}
+                className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg border whitespace-nowrap ${
+                  contaAtiva
+                    ? "border-danger text-danger hover:bg-danger/10"
+                    : "border-success text-success hover:bg-success/10"
+                }`}
+              >
+                {salvandoConta ? "Salvando…" : contaAtiva ? "Desativar conta" : "Reativar conta"}
+              </button>
+              <button
+                onClick={onClose}
+                aria-label="Fechar"
+                className="text-muted hover:text-text2 text-xl leading-none px-1"
+              >
+                ×
+              </button>
+            </div>
           </div>
 
           <div className="flex gap-5 mt-5 border-b border-border -mb-6 pt-1">
@@ -200,6 +285,52 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
                 ) : (
                   <div className="card p-4 text-sm text-text2">Sem assinatura ativa.</div>
                 )}
+              </div>
+
+              <div>
+                <div className="text-[10px] font-bold tracking-wide text-muted mb-2">
+                  GERENCIAR PLANO
+                </div>
+                <div className="card p-4 flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="input-field text-sm py-2 flex-1"
+                      value={novoPlano}
+                      onChange={(e) => setNovoPlano(e.target.value as Plano)}
+                    >
+                      {(Object.keys(PLANOS) as Plano[]).map((p) => (
+                        <option key={p} value={p}>
+                          {PLANOS[p].label} — R$ {PLANOS[p].valor.toFixed(2)}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={ativarPlano}
+                      disabled={salvandoPlano}
+                      className="btn-primary text-xs px-4 py-2.5 whitespace-nowrap"
+                    >
+                      {salvandoPlano
+                        ? "Salvando…"
+                        : assinaturaAtiva
+                        ? "Trocar plano"
+                        : "Ativar plano"}
+                    </button>
+                  </div>
+                  {assinaturaAtiva && (
+                    <button
+                      onClick={cancelarAssinatura}
+                      disabled={salvandoPlano}
+                      className="text-[11px] font-semibold text-danger hover:opacity-80 self-start"
+                    >
+                      Cancelar assinatura atual
+                    </button>
+                  )}
+                  {planoErro && <p className="text-danger text-[11px]">{planoErro}</p>}
+                  <p className="text-[11px] text-muted">
+                    Ativar/trocar cancela a assinatura atual (se houver) e cria uma nova, manual —
+                    use isso pra quem pagou fora do sistema por enquanto.
+                  </p>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
