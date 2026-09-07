@@ -13,6 +13,7 @@ export interface Profile {
   time_coracao: string | null;
   banca_inicial: number | null;
   tutorial_completo: boolean;
+  ativo: boolean;
   created_at: string;
 }
 
@@ -34,6 +35,7 @@ export interface Subscription {
 
 export type SignalStatus = "no_ar" | "green" | "red";
 export type SignalTipo = "simples" | "bilhete";
+export type SugestaoTipo = "percentual" | "unidades" | "valor";
 
 export interface Signal {
   id: string;
@@ -47,6 +49,10 @@ export interface Signal {
   status: SignalStatus;
   live: boolean;
   tipo: SignalTipo;
+  casa_nome: string | null;
+  casa_link: string | null;
+  sugestao_tipo: SugestaoTipo | null;
+  sugestao_valor: number | null;
   published_by: string | null;
   created_at: string;
 }
@@ -72,6 +78,7 @@ export interface Operation {
   user_id: string;
   signal_id: string;
   valor: number;
+  odd_obtida: number | null;
   status: OperationStatus;
   created_at: string;
 }
@@ -94,6 +101,20 @@ export interface SupportMessage {
   text: string;
   created_at: string;
 }
+
+// Configuração geral do site — linha única (id sempre 1). Guarda a casa de apostas
+// "base" usada no botão de cadastro pequeno do dashboard do usuário.
+export interface AppSettings {
+  id: number;
+  casa_nome: string | null;
+  casa_link: string | null;
+  updated_at: string;
+}
+
+// 1 "unidade" = 1% da banca inicial informada no tutorial. É a convenção mais comum em
+// gestão de banca esportiva — deixamos isso explícito aqui porque é a única suposição
+// numérica que fazemos por conta própria nessa feature (o resto vem direto do admin).
+export const VALOR_UNIDADE_PCT = 1;
 
 // Preços vigentes — mesmos valores usados no protótipo. Ajuste aqui quando a promoção
 // de lançamento (48h) acabar.
