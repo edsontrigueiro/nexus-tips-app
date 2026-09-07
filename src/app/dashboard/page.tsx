@@ -29,6 +29,21 @@ export default async function VisaoGeralPage() {
   const reds = settled.filter((op) => op.status === "red").length;
   const minhaAssertividade = settled.length ? Math.round((greens / settled.length) * 100) : null;
 
+  // Assertividade da plataforma nos últimos 30 dias — calculada de verdade a partir dos
+  // sinais encerrados, não um número fixo no código.
+  const trintaDiasAtras = new Date();
+  trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+  const { data: sinaisRecentes } = await supabase
+    .from("signals")
+    .select("status")
+    .in("status", ["green", "red"])
+    .gte("created_at", trintaDiasAtras.toISOString());
+  const plataformaGreens = (sinaisRecentes || []).filter((s) => s.status === "green").length;
+  const plataformaTotal = sinaisRecentes?.length || 0;
+  const assertividadePlataforma = plataformaTotal
+    ? Math.round((plataformaGreens / plataformaTotal) * 100)
+    : null;
+
   return (
     <div className="flex flex-col gap-5 max-w-3xl">
       <div>
@@ -118,11 +133,37 @@ export default async function VisaoGeralPage() {
         )}
       </div>
 
+      {activeSub && (
+        <Link
+          href="/dashboard/gestao"
+          className="card p-5 flex items-center justify-between hover:border-primary/40 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-elevated border border-border flex-none flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2">
+                <path d="M4 19V10M10 19V5M16 19V13M22 19V8" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-sm font-bold">Suas conquistas</div>
+              <div className="text-xs text-text2 mt-0.5">
+                Sequência de greens, banca e performance — tudo em Gestão.
+              </div>
+            </div>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </Link>
+      )}
+
       <div className="grid grid-cols-3 gap-4">
         <div className="card p-6">
           <div className="text-xs font-semibold text-text2">ASSERTIVIDADE NEXUS TIPS · 30 DIAS</div>
           <div className="text-[11px] text-muted mt-1">Performance geral da plataforma.</div>
-          <div className="font-mono text-2xl font-semibold text-success mt-2.5">94.8%</div>
+          <div className="font-mono text-2xl font-semibold text-success mt-2.5">
+            {assertividadePlataforma === null ? "—" : `${assertividadePlataforma}%`}
+          </div>
         </div>
         <div className="card p-6">
           <div className="text-xs font-semibold text-text2">SUA ASSERTIVIDADE</div>
