@@ -105,10 +105,19 @@ export default async function VisaoGeralPage() {
             {operations.map((op: any) => (
               <div key={op.id} className="card p-4 flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-semibold">
-                    {op.signals.time_a} x {op.signals.time_b}
+                  <div className="text-sm font-semibold flex items-center gap-1.5">
+                    {op.signals.tipo === "bilhete" && (
+                      <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded flex-none">
+                        BILHETE
+                      </span>
+                    )}
+                    {op.signals.tipo === "bilhete"
+                      ? op.signals.time_b
+                      : `${op.signals.time_a} x ${op.signals.time_b}`}
                   </div>
-                  <div className="text-xs text-text2 mt-0.5">{op.signals.mercado}</div>
+                  <div className="text-xs text-text2 mt-0.5">
+                    {op.signals.tipo === "bilhete" ? "Combinados" : op.signals.mercado}
+                  </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
