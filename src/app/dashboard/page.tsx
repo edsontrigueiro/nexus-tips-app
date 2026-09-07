@@ -1,196 +1,105 @@
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+// Tipos compartilhados, espelhando o schema em supabase/migrations/0001_init.sql.
+// Mantenha isto em sincronia manualmente por enquanto (dá pra gerar automático depois
+// com `supabase gen types typescript`, quando o projeto Supabase já existir).
 
-export default async function VisaoGeralPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+export type Role = "user" | "admin";
 
-  const { data: activeSub } = await supabase
-    .from("subscriptions")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("status", "ativa")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const { data: allOperations } = await supabase
-    .from("operations")
-    .select("*, signals(*)")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
-
-  const operations = (allOperations || []).filter((op) => op.status === "andamento");
-  const settled = (allOperations || []).filter((op) => op.status !== "andamento");
-  const greens = settled.filter((op) => op.status === "green").length;
-  const reds = settled.filter((op) => op.status === "red").length;
-  const minhaAssertividade = settled.length ? Math.round((greens / settled.length) * 100) : null;
-
-  // Assertividade da plataforma nos últimos 30 dias — calculada de verdade a partir dos
-  // sinais encerrados, não um número fixo no código.
-  const trintaDiasAtras = new Date();
-  trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
-  const { data: sinaisRecentes } = await supabase
-    .from("signals")
-    .select("status")
-    .in("status", ["green", "red"])
-    .gte("created_at", trintaDiasAtras.toISOString());
-  const plataformaGreens = (sinaisRecentes || []).filter((s) => s.status === "green").length;
-  const plataformaTotal = sinaisRecentes?.length || 0;
-  const assertividadePlataforma = plataformaTotal
-    ? Math.round((plataformaGreens / plataformaTotal) * 100)
-    : null;
-
-  return (
-    <div className="flex flex-col gap-5 max-w-3xl">
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2">
-            <rect x="3" y="3" width="7" height="7" rx="1.5" />
-            <rect x="14" y="3" width="7" height="7" rx="1.5" />
-            <rect x="3" y="14" width="7" height="7" rx="1.5" />
-            <rect x="14" y="14" width="7" height="7" rx="1.5" />
-          </svg>
-          <span className="text-xs font-bold tracking-wide text-primary">VISÃO GERAL</span>
-        </div>
-        <h1 className="text-2xl font-bold mb-1">Sua operação em um lugar só</h1>
-        <p className="text-text2 text-sm">
-          Assinatura e operações em andamento, de relance.
-        </p>
-      </div>
-
-      <div className="card p-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span
-            className={`w-2.5 h-2.5 rounded-full ${activeSub ? "bg-success" : "bg-muted"}`}
-          />
-          <div>
-            <div className="text-sm font-bold">
-              {activeSub ? `Assinatura ativa — ${activeSub.plano}` : "Assinatura inativa"}
-            </div>
-            <div className="text-xs text-text2 mt-0.5">
-              {activeSub
-                ? "Eventos e marcação de operações liberados."
-                : "Assine um plano para liberar os eventos monitorados."}
-            </div>
-          </div>
-        </div>
-        <Link
-          href="/dashboard/planos"
-          className={activeSub ? "btn-outline text-xs px-4 py-2.5" : "btn-primary text-xs px-4 py-2.5"}
-        >
-          {activeSub ? "Gerenciar assinatura" : "Ver planos"}
-        </Link>
-      </div>
-
-      <Link
-        href="/dashboard/eventos"
-        className="btn-outline self-start flex items-center gap-2 text-sm px-5 py-3"
-      >
-        Ir para Eventos
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </Link>
-
-      <div>
-        <div className="text-sm font-bold text-text2 mb-3">
-          OPERAÇÕES EM ANDAMENTO ({operations.length})
-        </div>
-        {operations.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            {operations.map((op: any) => (
-              <div key={op.id} className="card p-4 flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-semibold flex items-center gap-1.5">
-                    {op.signals.tipo === "bilhete" && (
-                      <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded flex-none">
-                        BILHETE
-                      </span>
-                    )}
-                    {op.signals.tipo === "bilhete"
-                      ? op.signals.time_b
-                      : `${op.signals.time_a} x ${op.signals.time_b}`}
-                  </div>
-                  <div className="text-xs text-text2 mt-0.5">
-                    {op.signals.tipo === "bilhete" ? "Combinados" : op.signals.mercado}
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <div className="text-[10px] text-muted">
-                      ODD {op.signals.odd} · R$ {op.valor}
-                    </div>
-                    <div className="font-mono text-sm font-semibold text-info mt-0.5">
-                      R$ {(op.signals.odd * op.valor).toFixed(2)}
-                    </div>
-                  </div>
-                  <span className="bg-info/15 text-info text-[10px] font-bold px-3 py-1.5 rounded-md whitespace-nowrap">
-                    EM ANDAMENTO
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="card p-7 text-center text-sm text-text2">
-            Nenhuma operação em andamento agora. Marque um sinal em Eventos para começar.
-          </div>
-        )}
-      </div>
-
-      {activeSub && (
-        <Link
-          href="/dashboard/gestao"
-          className="card p-5 flex items-center justify-between hover:border-primary/40 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-elevated border border-border flex-none flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2">
-                <path d="M4 19V10M10 19V5M16 19V13M22 19V8" strokeLinecap="round" />
-              </svg>
-            </div>
-            <div>
-              <div className="text-sm font-bold">Suas conquistas</div>
-              <div className="text-xs text-text2 mt-0.5">
-                Sequência de greens, banca e performance — tudo em Gestão.
-              </div>
-            </div>
-          </div>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </Link>
-      )}
-
-      <div className="grid grid-cols-3 gap-4">
-        <div className="card p-6">
-          <div className="text-xs font-semibold text-text2">ASSERTIVIDADE NEXUS TIPS · 30 DIAS</div>
-          <div className="text-[11px] text-muted mt-1">Performance geral da plataforma.</div>
-          <div className="font-mono text-2xl font-semibold text-success mt-2.5">
-            {assertividadePlataforma === null ? "—" : `${assertividadePlataforma}%`}
-          </div>
-        </div>
-        <div className="card p-6">
-          <div className="text-xs font-semibold text-text2">SUA ASSERTIVIDADE</div>
-          <div className="text-[11px] text-muted mt-1">Baseado nas suas operações marcadas.</div>
-          <div className="font-mono text-2xl font-semibold mt-2.5">
-            {minhaAssertividade === null ? "—" : `${minhaAssertividade}%`}
-          </div>
-        </div>
-        <div className="card p-6">
-          <div className="text-xs font-semibold text-text2">GREENS / REDS</div>
-          <div className="text-[11px] text-muted mt-1">Operações já confirmadas.</div>
-          <div className="font-mono text-2xl font-semibold mt-2.5">
-            <span className="text-success">{greens}</span>
-            <span className="text-muted text-base"> / </span>
-            <span className="text-danger">{reds}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+export interface Profile {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: Role;
+  time_coracao: string | null;
+  banca_inicial: number | null;
+  tutorial_completo: boolean;
+  ativo: boolean;
+  created_at: string;
 }
+
+export type Plano = "mensal" | "semestral" | "anual";
+export type SubscriptionStatus = "ativa" | "cancelada" | "atrasada";
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  plano: Plano;
+  valor: number;
+  status: SubscriptionStatus;
+  provider: string;
+  provider_subscription_id: string | null;
+  current_period_end: string | null;
+  created_at: string;
+  canceled_at: string | null;
+}
+
+export type SignalStatus = "no_ar" | "green" | "red";
+export type SignalTipo = "simples" | "bilhete";
+
+export interface Signal {
+  id: string;
+  competicao: string;
+  time_a: string;
+  time_b: string;
+  mercado: string;
+  odd: number;
+  estrategia: string | null;
+  rationale: string | null;
+  status: SignalStatus;
+  live: boolean;
+  tipo: SignalTipo;
+  published_by: string | null;
+  created_at: string;
+}
+
+// Um jogo dentro de um bilhete (sinal com tipo "bilhete"). Só existe quando o sinal
+// combina múltiplos jogos — um sinal "simples" não tem nenhuma linha aqui.
+export interface SignalLeg {
+  id: string;
+  signal_id: string;
+  competicao: string;
+  time_a: string;
+  time_b: string;
+  mercado: string;
+  odd: number;
+  ordem: number;
+  created_at: string;
+}
+
+export type OperationStatus = "andamento" | "green" | "red";
+
+export interface Operation {
+  id: string;
+  user_id: string;
+  signal_id: string;
+  valor: number;
+  status: OperationStatus;
+  created_at: string;
+}
+
+export type TicketStatus = "aberto" | "respondido" | "fechado";
+
+export interface SupportTicket {
+  id: string;
+  user_id: string;
+  assunto: string;
+  status: TicketStatus;
+  prioridade: "alta" | "media" | "baixa";
+  created_at: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  ticket_id: string;
+  sender: "user" | "admin";
+  text: string;
+  created_at: string;
+}
+
+// Preços vigentes — mesmos valores usados no protótipo. Ajuste aqui quando a promoção
+// de lançamento (48h) acabar.
+export const PLANOS = {
+  mensal: { label: "Mensal", valor: 47.9, valorPadrao: 97.9 },
+  semestral: { label: "Semestral", valor: 397.9 },
+  anual: { label: "Anual", valor: 697.9 },
+} as const;
