@@ -5,58 +5,86 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/Logo";
 
-const NAV_GROUPS = [
-  {
-    label: "PRINCIPAL",
-    links: [
-      {
-        href: "/dashboard",
-        label: "Visão geral",
-        icon: (
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <rect x="3" y="3" width="7" height="7" rx="1.5" />
-            <rect x="14" y="3" width="7" height="7" rx="1.5" />
-            <rect x="3" y="14" width="7" height="7" rx="1.5" />
-            <rect x="14" y="14" width="7" height="7" rx="1.5" />
-          </svg>
-        ),
-      },
-      {
-        href: "/dashboard/eventos",
-        label: "Eventos",
-        icon: (
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" strokeLinejoin="round" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    label: "CONTA",
-    links: [
-      {
-        href: "/dashboard/planos",
-        label: "Planos de assinatura",
-        icon: (
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <rect x="2" y="5" width="20" height="14" rx="2.5" />
-            <path d="M2 10h20" strokeLinecap="round" />
-          </svg>
-        ),
-      },
-      {
-        href: "/dashboard/suporte",
-        label: "Suporte",
-        icon: (
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 20l1-5.4A8.5 8.5 0 1 1 21 11.5z" />
-          </svg>
-        ),
-      },
-    ],
-  },
-];
+const ICONS = {
+  grid: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  ),
+  bolt: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" strokeLinejoin="round" />
+    </svg>
+  ),
+  wallet: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="6" width="18" height="13" rx="2" />
+      <path d="M3 10h18" />
+      <circle cx="16" cy="14.5" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  clock: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  bars: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 19V10M10 19V5M16 19V13M22 19V8" strokeLinecap="round" />
+    </svg>
+  ),
+  card: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="2" y="5" width="20" height="14" rx="2.5" />
+      <path d="M2 10h20" strokeLinecap="round" />
+    </svg>
+  ),
+  headset: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 20l1-5.4A8.5 8.5 0 1 1 21 11.5z" />
+    </svg>
+  ),
+};
+
+const Lock = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#66758A" strokeWidth="2">
+    <rect x="5" y="11" width="14" height="9" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" strokeLinecap="round" />
+  </svg>
+);
+
+function navGroups(subscribed: boolean) {
+  return [
+    {
+      label: "PRINCIPAL",
+      links: [
+        { href: "/dashboard", label: "Visão geral", icon: ICONS.grid, locked: false },
+        { href: "/dashboard/eventos", label: "Eventos", icon: ICONS.bolt, locked: !subscribed },
+      ],
+    },
+    {
+      label: "OPERAÇÃO",
+      links: subscribed
+        ? [
+            { href: "/dashboard/gestao", label: "Gestão", icon: ICONS.wallet, locked: false },
+            { href: "/dashboard/historico", label: "Histórico", icon: ICONS.clock, locked: false },
+            { href: "/dashboard/performance", label: "Performance", icon: ICONS.bars, locked: false },
+          ]
+        : [{ href: "/dashboard/historico", label: "Histórico", icon: ICONS.clock, locked: false }],
+    },
+    {
+      label: "CONTA",
+      links: [
+        { href: "/dashboard/planos", label: "Planos de assinatura", icon: ICONS.card, locked: false },
+        { href: "/dashboard/suporte", label: "Suporte", icon: ICONS.headset, locked: false },
+      ],
+    },
+  ];
+}
 
 export function DashboardSidebar({
   name,
@@ -68,6 +96,7 @@ export function DashboardSidebar({
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const groups = navGroups(subscribed);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -85,7 +114,7 @@ export function DashboardSidebar({
       </div>
 
       <div className="flex-1 overflow-hidden px-3.5">
-        {NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.label}>
             <div className="text-[10px] font-bold tracking-wide text-muted px-2.5 pt-4 pb-1.5">
               {group.label}
@@ -97,14 +126,17 @@ export function DashboardSidebar({
                   <Link
                     key={link.href}
                     href={link.href}
-                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm border-l-[2.5px] transition-colors ${
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm border-l-[2.5px] transition-colors ${
                       active
                         ? "bg-elevated text-text border-primary font-semibold"
                         : "text-text2 border-transparent hover:bg-elevated"
                     }`}
                   >
-                    {link.icon}
-                    {link.label}
+                    <span className="flex items-center gap-2.5">
+                      {link.icon}
+                      {link.label}
+                    </span>
+                    {link.locked && <Lock />}
                   </Link>
                 );
               })}
