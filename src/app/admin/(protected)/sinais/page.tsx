@@ -2,11 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Signal, SignalLeg, SignalTipo } from "@/lib/types";
+import type { Signal, SignalLeg, SignalTipo, SugestaoTipo } from "@/lib/types";
 
 type SignalRow = Signal & { signal_legs: SignalLeg[] };
 
 const ESTRATEGIAS = ["Valor esperado", "Overreaction de mercado", "Modelo estatístico", "Live trading"];
+
+const SUGESTAO_LABELS: Record<SugestaoTipo, string> = {
+  percentual: "% da banca",
+  unidades: "Unidades",
+  valor: "Valor fixo (R$)",
+};
 
 interface LegForm {
   competicao: string;
@@ -40,15 +46,30 @@ export default function AdminSinaisPage() {
   const [bilheteTitulo, setBilheteTitulo] = useState("");
   const [legs, setLegs] = useState<LegForm[]>([{ ...EMPTY_LEG }, { ...EMPTY_LEG }]);
 
+  // Direcionamento pra casa de apostas e sugestão de entrada — valem tanto pra sinal
+  // simples quanto pra bilhete, por isso ficam fora do "form"/"legs" específicos de cada um.
+  const [casaNome, setCasaNome] = useState("");
+  const [casaLink, setCasaLink] = useState("");
+  const [defaultCasa, setDefaultCasa] = useState({ nome: "", link: "" });
+  const [sugestaoTipo, setSugestaoTipo] = useState<SugestaoTipo | "nenhuma">("nenhuma");
+  const [sugestaoValor, setSugestaoValor] = useState("");
+
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
     async function init() {
-      const { data } = await supabase
-        .from("signals")
-        .select("*, signal_legs(*)")
-        .order("created_at", { ascending: false });
+      const [{ data }, { data: settings }] = await Promise.all([
+        supabase.from("signals").select("*, signal_legs(*)").order("created_at", { ascending: false }),
+        supabase.from("app_settings").select("casa_nome, casa_link").eq("id", 1).maybeSingle(),
+      ]);
       setSignals((data as SignalRow[]) || []);
+      // Pré-preenche com a casa "base" cadastrada em Configurações — o admin só precisa
+      // trocar quando o jogo específico for direcionar pra outro lugar.
+      const nomeBase = settings?.casa_nome || "";
+      const linkBase = settings?.casa_link || "";
+      setDefaultCasa({ nome: nomeBase, link: linkBase });
+      setCasaNome(nomeBase);
+      setCasaLink(linkBase);
       setLoading(false);
 
       channel = supabase
@@ -101,6 +122,10 @@ export default function AdminSinaisPage() {
     });
     setBilheteTitulo("");
     setLegs([{ ...EMPTY_LEG }, { ...EMPTY_LEG }]);
+    setCasaNome(defaultCasa.nome);
+    setCasaLink(defaultCasa.link);
+    setSugestaoTipo("nenhuma");
+    setSugestaoValor("");
   }
 
   async function reloadSignals() {
@@ -119,6 +144,12 @@ export default function AdminSinaisPage() {
       data: { user },
     } = await supabase.auth.getUser();
 
+    const sugestaoValorNum = parseFloat(sugestaoValor.replace(",", "."));
+    const sugestaoCampos =
+      sugestaoTipo !== "nenhuma" && !isNaN(sugestaoValorNum) && sugestaoValorNum > 0
+        ? { sugestao_tipo: sugestaoTipo, sugestao_valor: sugestaoValorNum }
+        : { sugestao_tipo: null, sugestao_valor: null };
+
     if (tipo === "simples") {
       // Esse insert é o que faz o sinal aparecer na hora na página Eventos de todo
       // usuário ativo — é a mesma tabela, com Realtime ligado (ver migration).
@@ -132,6 +163,9 @@ export default function AdminSinaisPage() {
         rationale: form.rationale || null,
         live: form.live,
         tipo: "simples",
+        casa_nome: casaNome || null,
+        casa_link: casaLink || null,
+        ...sugestaoCampos,
         published_by: user?.id,
       });
       setPublishing(false);
@@ -164,6 +198,9 @@ export default function AdminSinaisPage() {
         rationale: form.rationale || null,
         live: form.live,
         tipo: "bilhete",
+        casa_nome: casaNome || null,
+        casa_link: casaLink || null,
+        ...sugestaoCampos,
         published_by: user?.id,
       })
       .select()
@@ -233,6 +270,63 @@ export default function AdminSinaisPage() {
               Bilhete (vários jogos)
             </button>
           </div>
+        </div>
+
+        <div className="border border-border rounded-lg p-3.5 flex flex-col gap-3">
+          <div className="text-[10px] font-bold text-muted tracking-wide">
+            DIRECIONAMENTO E SUGESTÃO DE ENTRADA
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              className="input-field text-sm"
+              placeholder="Nome da casa (ex: Bet365)"
+              value={casaNome}
+              onChange={(e) => setCasaNome(e.target.value)}
+            />
+            <input
+              className="input-field text-sm"
+              placeholder="Link de direcionamento (opcional)"
+              value={casaLink}
+              onChange={(e) => setCasaLink(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <select
+              className="input-field text-sm"
+              value={sugestaoTipo}
+              onChange={(e) => setSugestaoTipo(e.target.value as SugestaoTipo | "nenhuma")}
+            >
+              <option value="nenhuma">Sem sugestão de valor</option>
+              {(Object.keys(SUGESTAO_LABELS) as SugestaoTipo[]).map((t) => (
+                <option key={t} value={t}>
+                  {SUGESTAO_LABELS[t]}
+                </option>
+              ))}
+            </select>
+            <input
+              className="input-field text-sm"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder={
+                sugestaoTipo === "percentual"
+                  ? "Ex: 2 (= 2% da banca)"
+                  : sugestaoTipo === "unidades"
+                  ? "Ex: 1.5 unidades"
+                  : sugestaoTipo === "valor"
+                  ? "Ex: 50 (R$ 50,00)"
+                  : "Escolha um tipo ao lado"
+              }
+              value={sugestaoValor}
+              onChange={(e) => setSugestaoValor(e.target.value)}
+              disabled={sugestaoTipo === "nenhuma"}
+            />
+          </div>
+          <p className="text-[11px] text-muted">
+            O nome/link vêm pré-preenchidos da casa base (Configurações) — troque só se
+            este jogo específico for pra outro lugar. A sugestão aparece pro usuário na
+            página Eventos, junto do botão de marcar operação.
+          </p>
         </div>
 
         {tipo === "simples" ? (
