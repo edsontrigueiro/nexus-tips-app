@@ -1,19 +1,36 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/Logo";
 
 export default function LoginPage() {
+  // useSearchParams (usado pra ler ?desativado=1) exige um Suspense boundary em volta
+  // pra não quebrar o build estático — sem isso o Next recusa a exportar a página.
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("desativado") === "1") {
+      setError("Sua conta foi desativada. Fale com o suporte se acha que isso é um engano.");
+    }
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,12 +42,28 @@ export default function LoginPage() {
       password,
     });
 
-    setLoading(false);
     if (signInError) {
+      setLoading(false);
       setError("E-mail ou senha inválidos.");
       return;
     }
 
+    // Checa aqui além do middleware pra dar feedback na hora, sem depender de um
+    // redirect a mais — conta desativada não deve nem piscar o dashboard.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase.from("profiles").select("ativo").eq("id", user.id).single();
+      if (profile && profile.ativo === false) {
+        await supabase.auth.signOut();
+        setLoading(false);
+        setError("Sua conta foi desativada. Fale com o suporte se acha que isso é um engano.");
+        return;
+      }
+    }
+
+    setLoading(false);
     router.push("/dashboard");
     router.refresh();
   }
