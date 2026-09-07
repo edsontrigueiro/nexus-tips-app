@@ -117,6 +117,11 @@ export default function AdminUsuariosPage() {
                       ADMIN
                     </span>
                   )}
+                  {!u.ativo && (
+                    <span className="text-[10px] font-bold tracking-wide rounded-full px-2.5 py-1 border bg-danger/10 border-danger text-danger">
+                      INATIVO
+                    </span>
+                  )}
                   <span className="text-[10px] text-muted font-mono">
                     {new Date(u.created_at).toLocaleDateString("pt-BR")}
                   </span>
