@@ -12,46 +12,52 @@ body {
   color: #f4f6fa;
 }
 
-.card {
-  background: #0d1728;
-  border: 1px solid #1c2940;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
-}
+/* Em @layer components: assim, qualquer utilitário do Tailwind (ex: pl-10 num input com
+   ícone/prefixo por cima) sempre ganha da regra abaixo, não importa a ordem no arquivo.
+   Sem isso, `.input-field { padding: 12px 14px }` — por vir depois de `@tailwind utilities`
+   no CSS final — vencia o `pl-10`/`pl-9` e o texto digitado ficava por baixo do ícone/R$. */
+@layer components {
+  .card {
+    background: #0d1728;
+    border: 1px solid #1c2940;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  }
 
-.btn-primary {
-  background: #2563eb;
-  color: #fff;
-  font-weight: 600;
-  border-radius: 8px;
-  transition: opacity 0.15s;
-}
-.btn-primary:hover {
-  opacity: 0.9;
-}
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+  .btn-primary {
+    background: #2563eb;
+    color: #fff;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 
-.btn-outline {
-  background: transparent;
-  border: 1.5px solid #2563eb;
-  color: #2563eb;
-  font-weight: 600;
-  border-radius: 8px;
-}
+  .btn-outline {
+    background: transparent;
+    border: 1.5px solid #2563eb;
+    color: #2563eb;
+    font-weight: 600;
+    border-radius: 8px;
+  }
 
-.input-field {
-  background: #121e32;
-  border: 1px solid #1c2940;
-  border-radius: 8px;
-  padding: 12px 14px;
-  color: #f4f6fa;
-  font-size: 14px;
-  width: 100%;
-}
-.input-field:focus {
-  outline: none;
-  border-color: #2563eb;
+  .input-field {
+    background: #121e32;
+    border: 1px solid #1c2940;
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: #f4f6fa;
+    font-size: 14px;
+    width: 100%;
+  }
+  .input-field:focus {
+    outline: none;
+    border-color: #2563eb;
+  }
 }
