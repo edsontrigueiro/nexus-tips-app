@@ -6,8 +6,12 @@ import type { Operation, Signal } from "@/lib/types";
 
 type OperationRow = Operation & { signals: Signal };
 
+function oddEfetiva(op: OperationRow): number {
+  return op.odd_obtida ?? op.signals.odd;
+}
+
 function profitOf(op: OperationRow): number {
-  if (op.status === "green") return op.valor * (op.signals.odd - 1);
+  if (op.status === "green") return op.valor * (oddEfetiva(op) - 1);
   if (op.status === "red") return -op.valor;
   return 0;
 }
@@ -120,7 +124,7 @@ export default function GestaoPage() {
   const maiorOdd = useMemo(() => {
     const greenOps = settled.filter((o) => o.status === "green");
     if (greenOps.length === 0) return null;
-    return Math.max(...greenOps.map((o) => o.signals.odd));
+    return Math.max(...greenOps.map((o) => oddEfetiva(o)));
   }, [settled]);
 
   async function salvarValor(op: OperationRow) {
@@ -222,7 +226,7 @@ export default function GestaoPage() {
                       : `${op.signals.time_a} x ${op.signals.time_b}`}
                   </div>
                   <div className="text-xs text-text2 mt-0.5">
-                    {op.signals.tipo === "bilhete" ? "Combinados" : op.signals.mercado} · ODD {op.signals.odd}
+                    {op.signals.tipo === "bilhete" ? "Combinados" : op.signals.mercado} · ODD {oddEfetiva(op)}
                   </div>
                 </div>
                 <div className="flex-none flex items-center gap-2">
