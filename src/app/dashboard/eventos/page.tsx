@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Signal, SignalLeg, Operation } from "@/lib/types";
+import { sugestaoDoSinal } from "@/lib/sugestao";
 
 type SignalRow = Signal & { signal_legs: SignalLeg[] };
 type Filtro = "todos" | "vivo" | "encerrados";
@@ -14,10 +15,17 @@ export default function EventosPage() {
   const [operations, setOperations] = useState<Operation[]>([]);
   const [subscribed, setSubscribed] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [bancaAtual, setBancaAtual] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [marking, setMarking] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Formulário de marcar operação: qual sinal está aberto pra preencher, valor e odd
+  // que a pessoa realmente conseguiu na casa dela (pode ser diferente da odd do sinal).
+  const [openFormId, setOpenFormId] = useState<string | null>(null);
+  const [formValor, setFormValor] = useState("");
+  const [formOdd, setFormOdd] = useState("");
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     let signalsChannel: ReturnType<typeof supabase.channel> | null = null;
@@ -38,14 +46,18 @@ export default function EventosPage() {
       if (!user) return;
       setUserId(user.id);
 
-      const { data: activeSub } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("status", "ativa")
-        .limit(1)
-        .maybeSingle();
+      const [{ data: activeSub }, { data: profile }] = await Promise.all([
+        supabase
+          .from("subscriptions")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("status", "ativa")
+          .limit(1)
+          .maybeSingle(),
+        supabase.from("profiles").select("banca_inicial").eq("id", user.id).single(),
+      ]);
       setSubscribed(!!activeSub);
+      setBancaAtual(profile?.banca_inicial ?? null);
 
       await reloadSignals();
 
@@ -99,17 +111,29 @@ export default function EventosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function marcarOperacao(signal: Signal) {
+  function abrirFormulario(signal: Signal) {
+    const sugestao = sugestaoDoSinal(signal, bancaAtual);
+    setFormValor(sugestao?.valorReais ? sugestao.valorReais.toFixed(2) : "100");
+    setFormOdd(String(signal.odd));
+    setOpenFormId(signal.id);
+  }
+
+  async function confirmarOperacao(signal: Signal) {
     if (!userId || !subscribed) return;
-    setMarking(signal.id);
+    const valor = parseFloat(formValor.replace(",", "."));
+    const odd = parseFloat(formOdd.replace(",", "."));
+    if (isNaN(valor) || valor <= 0 || isNaN(odd) || odd <= 1) return;
+
+    setConfirming(true);
     const { data, error } = await supabase
       .from("operations")
-      .insert({ user_id: userId, signal_id: signal.id, valor: 100 })
+      .insert({ user_id: userId, signal_id: signal.id, valor, odd_obtida: odd })
       .select()
       .single();
-    setMarking(null);
+    setConfirming(false);
     if (!error && data) {
       setOperations((prev) => [...prev, data as Operation]);
+      setOpenFormId(null);
     }
   }
 
@@ -225,6 +249,8 @@ export default function EventosPage() {
             const expanded = expandedId === signal.id;
             const isBilhete = signal.tipo === "bilhete";
             const legs = (signal.signal_legs || []).slice().sort((a, b) => a.ordem - b.ordem);
+            const sugestao = sugestaoDoSinal(signal, bancaAtual);
+            const formAberto = openFormId === signal.id;
 
             return (
               <div key={signal.id} className="card p-5">
@@ -282,6 +308,12 @@ export default function EventosPage() {
                   </div>
                 </div>
 
+                {sugestao && (
+                  <div className="mt-3 text-[11px] text-info bg-info/10 border border-info/30 rounded-lg px-3 py-2">
+                    <span className="font-bold">Sugestão de entrada:</span> {sugestao.texto}
+                  </div>
+                )}
+
                 {signal.rationale && (
                   <button
                     onClick={() => setExpandedId(expanded ? null : signal.id)}
@@ -307,20 +339,77 @@ export default function EventosPage() {
                   </div>
                 )}
 
-                <div className="flex justify-end pt-3 mt-3 border-t border-border">
-                  <button
-                    onClick={() => marcarOperacao(signal)}
-                    disabled={alreadyMarked || marking === signal.id}
-                    className="btn-primary text-xs px-4 py-2 disabled:opacity-40"
-                  >
-                    {alreadyMarked
-                      ? "Operação marcada ✓"
-                      : marking === signal.id
-                      ? "Marcando…"
-                      : isBilhete
-                      ? "Marcar bilhete"
-                      : "Marcar operação"}
-                  </button>
+                {formAberto && !alreadyMarked && (
+                  <div className="mt-3 pt-3 border-t border-border flex flex-col gap-2.5">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10.5px] font-semibold text-text2">
+                          Valor que você entrou
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted font-mono">
+                            R$
+                          </span>
+                          <input
+                            className="input-field pl-8 text-sm font-mono py-2"
+                            value={formValor}
+                            onChange={(e) => setFormValor(e.target.value.replace(/[^0-9.,]/g, ""))}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10.5px] font-semibold text-text2">
+                          Odd que você pegou
+                        </label>
+                        <input
+                          className="input-field text-sm font-mono py-2"
+                          value={formOdd}
+                          onChange={(e) => setFormOdd(e.target.value.replace(/[^0-9.,]/g, ""))}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setOpenFormId(null)}
+                        className="text-xs font-semibold text-text2 hover:text-text px-3 py-2"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => confirmarOperacao(signal)}
+                        disabled={confirming}
+                        className="btn-primary text-xs px-4 py-2 disabled:opacity-40"
+                      >
+                        {confirming ? "Confirmando…" : "Confirmar operação"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-3 mt-3 border-t border-border">
+                  {signal.casa_link && (
+                    
+                      href={signal.casa_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-outline text-xs px-4 py-2"
+                    >
+                      Apostar na {signal.casa_nome || "casa recomendada"}
+                    </a>
+                  )}
+                  {!formAberto && (
+                    <button
+                      onClick={() => abrirFormulario(signal)}
+                      disabled={alreadyMarked}
+                      className="btn-primary text-xs px-4 py-2 disabled:opacity-40"
+                    >
+                      {alreadyMarked
+                        ? "Operação marcada ✓"
+                        : isBilhete
+                        ? "Marcar bilhete"
+                        : "Marcar operação"}
+                    </button>
+                  )}
                 </div>
               </div>
             );
