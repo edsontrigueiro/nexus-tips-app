@@ -31,10 +31,21 @@ export default async function DashboardLayout({
     .limit(1)
     .maybeSingle();
 
+  const { data: settings } = await supabase
+    .from("app_settings")
+    .select("casa_nome, casa_link")
+    .eq("id", 1)
+    .maybeSingle();
+
   return (
     <div className="min-h-screen flex bg-bg text-text">
       <OnboardingTutorial />
-      <DashboardSidebar name={profile?.name || user.email || "Você"} subscribed={!!activeSub} />
+      <DashboardSidebar
+        name={profile?.name || user.email || "Você"}
+        subscribed={!!activeSub}
+        casaNome={settings?.casa_nome || null}
+        casaLink={settings?.casa_link || null}
+      />
       <div className="flex-1 flex flex-col">
         <div className="h-16 flex-none flex items-center justify-end px-8 border-b border-border">
           <div
