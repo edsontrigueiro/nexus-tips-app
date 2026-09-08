@@ -9,6 +9,22 @@ import { sugestaoDoSinal } from "@/lib/sugestao";
 type SignalRow = Signal & { signal_legs: SignalLeg[] };
 type Filtro = "todos" | "vivo";
 
+// "Hoje, 16:30" / "Amanhã, 16:30" / "08/09, 16:30" — sempre com hora, pra não obrigar o
+// usuário a fazer conta de fuso: o valor já vem convertido pro horário local do navegador.
+function fmtHorarioJogo(iso: string): string {
+  const d = new Date(iso);
+  const agora = new Date();
+  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  const amanha = new Date(hoje);
+  amanha.setDate(hoje.getDate() + 1);
+  const dData = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  if (dData.getTime() === hoje.getTime()) return `Hoje, ${hora}`;
+  if (dData.getTime() === amanha.getTime()) return `Amanhã, ${hora}`;
+  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}, ${hora}`;
+}
+
 export default function EventosPage() {
   const supabase = createClient();
   const [signals, setSignals] = useState<SignalRow[]>([]);
@@ -270,6 +286,7 @@ export default function EventosPage() {
                       )}
                       <span className="text-[10px] text-muted font-semibold tracking-wide">
                         {signal.competicao}
+                        {signal.horario_jogo && ` · ${fmtHorarioJogo(signal.horario_jogo)}`}
                       </span>
                     </div>
 
