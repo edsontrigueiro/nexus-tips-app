@@ -67,6 +67,11 @@ function navGroups(subscribed: boolean) {
       ],
     },
     {
+      // Histórico e Performance ficam de fora do "subscribed ?" porque não dependem de
+      // assinatura: Performance é a performance da PLATAFORMA (todo sinal já publicado),
+      // não das operações do usuário — serve inclusive pra convencer quem ainda não
+      // assinou. Histórico, por outro lado, é pessoal (as operações que o usuário já
+      // marcou), então esse sim é travado — ver a página em si.
       label: "OPERAÇÃO",
       links: subscribed
         ? [
@@ -74,7 +79,10 @@ function navGroups(subscribed: boolean) {
             { href: "/dashboard/historico", label: "Histórico", icon: ICONS.clock, locked: false },
             { href: "/dashboard/performance", label: "Performance", icon: ICONS.bars, locked: false },
           ]
-        : [{ href: "/dashboard/historico", label: "Histórico", icon: ICONS.clock, locked: false }],
+        : [
+            { href: "/dashboard/historico", label: "Histórico", icon: ICONS.clock, locked: true },
+            { href: "/dashboard/performance", label: "Performance", icon: ICONS.bars, locked: false },
+          ],
     },
     {
       label: "CONTA",
@@ -150,7 +158,7 @@ export function DashboardSidebar({
       </div>
 
       <div className="p-4 flex flex-col gap-2">
-        {casaLink ? (
+        {casaLink && (
           <Link
             href={casaLink}
             target="_blank"
@@ -159,7 +167,7 @@ export function DashboardSidebar({
           >
             Cadastre-se na {casaNome || "casa de apostas"}
           </Link>
-        ) : null}
+        )}
         <div
           className={`card p-3.5 flex items-center gap-2.5 ${
             subscribed ? "border-success/35" : ""
