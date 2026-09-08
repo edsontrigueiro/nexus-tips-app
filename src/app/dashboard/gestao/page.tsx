@@ -16,35 +16,165 @@ function profitOf(op: OperationRow): number {
   return 0;
 }
 
-function ProfitChart({ series }: { series: number[] }) {
+// Formata como o app mostra dinheiro em outros lugares (R$ 1234.56), mas compacto o
+// bastante pra caber no eixo do gráfico.
+function fmtEixo(v: number): string {
+  const sinal = v > 0 ? "+" : v < 0 ? "−" : "";
+  return `${sinal}${Math.abs(Math.round(v))}`;
+}
+
+function fmtDataCurta(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function ProfitChart({ series, dates }: { series: number[]; dates: string[] }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
   if (series.length < 2) {
     return (
-      <div className="h-32 flex items-center justify-center text-xs text-muted">
+      <div className="h-48 flex items-center justify-center text-xs text-muted border border-dashed border-border rounded-lg">
         Marque e feche mais operações para ver sua curva de lucro aqui.
       </div>
     );
   }
-  const w = 300;
-  const h = 110;
+
+  const w = 600;
+  const h = 200;
+  const padL = 46;
+  const padR = 8;
+  const padT = 14;
+  const padB = 22;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
   const min = Math.min(0, ...series);
   const max = Math.max(0, ...series);
   const range = max - min || 1;
-  const points = series
-    .map((v, i) => {
-      const x = (i / (series.length - 1)) * w;
-      const y = h - ((v - min) / range) * h;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  const zeroY = h - ((0 - min) / range) * h;
+
+  const xAt = (i: number) => padL + (i / (series.length - 1)) * plotW;
+  const yAt = (v: number) => padT + plotH - ((v - min) / range) * plotH;
+
+  const linePoints = series.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ");
+  const areaPoints = `${xAt(0).toFixed(1)},${yAt(0).toFixed(1)} ${linePoints} ${xAt(
+    series.length - 1
+  ).toFixed(1)},${yAt(0).toFixed(1)}`;
+
   const last = series[series.length - 1];
-  const stroke = last >= 0 ? "#16A34A" : "#DC2626";
+  const positivo = last >= 0;
+  // Tokens reais do design system (Success/Danger) — o rascunho anterior usava verde/vermelho
+  // genéricos que não batiam com --success/--danger definidos em tailwind.config.ts.
+  const cor = positivo ? "#16C784" : "#F0445E";
+  const gradientId = positivo ? "profitUp" : "profitDown";
+
+  const ticks = [max, max - range / 2, min];
+
+  function handleMove(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relX = ((e.clientX - rect.left) / rect.width) * w;
+    const idx = Math.round(((relX - padL) / plotW) * (series.length - 1));
+    setHoverIdx(Math.max(0, Math.min(series.length - 1, idx)));
+  }
+
+  const hoverX = hoverIdx !== null ? xAt(hoverIdx) : null;
+  const hoverY = hoverIdx !== null ? yAt(series[hoverIdx]) : null;
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-32" preserveAspectRatio="none">
-      <line x1="0" y1={zeroY} x2={w} y2={zeroY} stroke="#1E2938" strokeWidth="1" strokeDasharray="4 3" />
-      <polyline points={points} fill="none" stroke={stroke} strokeWidth="2" />
-    </svg>
+    <div className="relative">
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="w-full h-48 cursor-crosshair"
+        onMouseMove={handleMove}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={cor} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={cor} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {ticks.map((t, i) => (
+          <g key={i}>
+            <line
+              x1={padL}
+              x2={w - padR}
+              y1={yAt(t)}
+              y2={yAt(t)}
+              stroke="#1C2940"
+              strokeWidth="1"
+              strokeDasharray={Math.abs(t) < 0.01 ? "4 3" : undefined}
+            />
+            <text
+              x={padL - 8}
+              y={yAt(t)}
+              textAnchor="end"
+              dominantBaseline="middle"
+              fontSize="9.5"
+              fontFamily="var(--font-geist-mono)"
+              fill="#66758A"
+            >
+              {fmtEixo(t)}
+            </text>
+          </g>
+        ))}
+
+        <polygon points={areaPoints} fill={`url(#${gradientId})`} />
+        <polyline
+          points={linePoints}
+          fill="none"
+          stroke={cor}
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        {hoverX !== null && hoverY !== null && (
+          <>
+            <line
+              x1={hoverX}
+              x2={hoverX}
+              y1={padT}
+              y2={h - padB}
+              stroke="#66758A"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+            />
+            <circle cx={hoverX} cy={hoverY} r="4" fill={cor} stroke="#0D1728" strokeWidth="2" />
+          </>
+        )}
+
+        <text x={padL} y={h - 6} fontSize="9.5" fontFamily="var(--font-geist-mono)" fill="#66758A">
+          {fmtDataCurta(dates[0])}
+        </text>
+        <text
+          x={w - padR}
+          y={h - 6}
+          textAnchor="end"
+          fontSize="9.5"
+          fontFamily="var(--font-geist-mono)"
+          fill="#66758A"
+        >
+          {fmtDataCurta(dates[dates.length - 1])}
+        </text>
+      </svg>
+
+      {hoverIdx !== null && hoverX !== null && (
+        <div
+          className="absolute top-1.5 -translate-x-1/2 bg-elevated border border-border rounded-lg px-2.5 py-1.5 pointer-events-none whitespace-nowrap shadow-lg"
+          style={{ left: `${(hoverX / w) * 100}%` }}
+        >
+          <div className="text-[9px] text-muted font-mono">{fmtDataCurta(dates[hoverIdx])}</div>
+          <div
+            className={`text-[12px] font-mono font-semibold ${
+              series[hoverIdx] >= 0 ? "text-success" : "text-danger"
+            }`}
+          >
+            {series[hoverIdx] >= 0 ? "+" : ""}
+            R$ {series[hoverIdx].toFixed(2)}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -92,7 +222,23 @@ export default function GestaoPage() {
   }, []);
 
   const andamento = useMemo(() => operations.filter((o) => o.status === "andamento"), [operations]);
-  const settled = useMemo(() => operations.filter((o) => o.status !== "andamento"), [operations]);
+
+  // Ordenado por quando FECHOU (finalizada_em), não por quando foi marcada — é isso que
+  // faz o gráfico contar uma linha do tempo real de resultado, não de cliques do usuário.
+  // finalizada_em só existe a partir da sync de status (trigger on_signal_resolved); cai
+  // pra created_at nas operações antigas que fecharam antes dessa migration existir.
+  const settled = useMemo(
+    () =>
+      operations
+        .filter((o) => o.status !== "andamento")
+        .slice()
+        .sort(
+          (a, b) =>
+            new Date(a.finalizada_em ?? a.created_at).getTime() -
+            new Date(b.finalizada_em ?? b.created_at).getTime()
+        ),
+    [operations]
+  );
 
   const totalProfit = useMemo(() => settled.reduce((acc, o) => acc + profitOf(o), 0), [settled]);
   const saldoAtual = (bancaInicial ?? 0) + totalProfit;
@@ -100,6 +246,10 @@ export default function GestaoPage() {
   const greens = settled.filter((o) => o.status === "green").length;
   const reds = settled.length - greens;
   const assertividade = settled.length ? Math.round((greens / settled.length) * 100) : null;
+  const oddMedia = useMemo(
+    () => (settled.length ? settled.reduce((acc, o) => acc + oddEfetiva(o), 0) / settled.length : null),
+    [settled]
+  );
 
   const profitSeries = useMemo(() => {
     let running = 0;
@@ -108,6 +258,10 @@ export default function GestaoPage() {
       return running;
     });
   }, [settled]);
+  const profitDates = useMemo(
+    () => settled.map((o) => o.finalizada_em ?? o.created_at),
+    [settled]
+  );
 
   const currentStreak = useMemo(() => {
     const chronDesc = [...settled].sort(
@@ -162,7 +316,7 @@ export default function GestaoPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card p-6">
           <div className="text-xs font-semibold text-text2">BANCA INICIAL</div>
           <div className="font-mono text-2xl font-semibold mt-2.5">
@@ -189,17 +343,23 @@ export default function GestaoPage() {
             {performancePct === null ? "—" : `${performancePct >= 0 ? "+" : ""}${performancePct.toFixed(1)}%`}
           </div>
         </div>
+        <div className="card p-6">
+          <div className="text-xs font-semibold text-text2">ODD MÉDIA</div>
+          <div className="font-mono text-2xl font-semibold mt-2.5">
+            {oddMedia === null ? "—" : oddMedia.toFixed(2)}
+          </div>
+        </div>
       </div>
 
       <div className="card p-6">
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-4">
           <div className="text-xs font-semibold text-text2">LUCRO ACUMULADO</div>
-          <div className="text-[11px] text-muted">
+          <div className="text-[11px] text-muted font-mono">
             {greens} green{greens !== 1 ? "s" : ""} · {reds} red{reds !== 1 ? "s" : ""}
-            {assertividade !== null ? ` · ${assertividade}% de assertividade` : ""}
+            {assertividade !== null ? ` · ${assertividade}%` : ""}
           </div>
         </div>
-        <ProfitChart series={profitSeries} />
+        <ProfitChart series={profitSeries} dates={profitDates} />
       </div>
 
       <div>
