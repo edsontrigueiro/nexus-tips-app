@@ -41,9 +41,17 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
   // ação do admin, até a lista de fora recarregar.
   const [contaAtiva, setContaAtiva] = useState(user.ativo);
   const [salvandoConta, setSalvandoConta] = useState(false);
+  const [role, setRole] = useState(user.role);
+  const [salvandoRole, setSalvandoRole] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [novoPlano, setNovoPlano] = useState<Plano>("mensal");
   const [salvandoPlano, setSalvandoPlano] = useState(false);
   const [planoErro, setPlanoErro] = useState<string | null>(null);
+
+  // Pra saber se o admin logado está olhando o próprio perfil — usado só pra impedir
+  // que ele tire o próprio acesso de admin sem querer e fique trancado pra fora do
+  // painel (ninguém mais poderia reverter isso pelo próprio painel depois).
+  const isSelf = currentUserId === user.id;
 
   async function loadSubs() {
     const { data } = await supabase
@@ -56,7 +64,7 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
 
   useEffect(() => {
     async function load() {
-      const [subsRes, opsRes, ticketsRes] = await Promise.all([
+      const [subsRes, opsRes, ticketsRes, authRes] = await Promise.all([
         supabase
           .from("subscriptions")
           .select("*")
@@ -72,10 +80,12 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
           .select("*")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false }),
+        supabase.auth.getUser(),
       ]);
       setSubs(subsRes.data || []);
       setOps((opsRes.data as OperationRow[]) || []);
       setTickets(ticketsRes.data || []);
+      setCurrentUserId(authRes.data.user?.id ?? null);
       setLoading(false);
     }
     load();
@@ -89,6 +99,18 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
       .eq("id", user.id);
     setSalvandoConta(false);
     if (!error) setContaAtiva(!contaAtiva);
+  }
+
+  async function toggleRole() {
+    // Trava de segurança: impede o admin de tirar o próprio acesso por aqui. Sem isso,
+    // um clique errado tranca a pessoa pra fora do painel inteiro, sem ninguém logado
+    // pra reverter — teria que mexer direto no banco.
+    if (isSelf && role === "admin") return;
+    setSalvandoRole(true);
+    const novoRole = role === "admin" ? "user" : "admin";
+    const { error } = await supabase.from("profiles").update({ role: novoRole }).eq("id", user.id);
+    setSalvandoRole(false);
+    if (!error) setRole(novoRole);
   }
 
   async function ativarPlano() {
@@ -166,7 +188,7 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
                 >
                   {assinaturaAtiva ? "ASSINANTE" : "GRATUITO"}
                 </span>
-                {user.role === "admin" && (
+                {role === "admin" && (
                   <span className="text-[10px] font-bold tracking-wide rounded-full px-2.5 py-1 border bg-primary/10 border-primary text-primary">
                     ADMIN
                   </span>
@@ -183,6 +205,22 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
               </div>
             </div>
             <div className="flex-none flex items-center gap-2">
+              <button
+                onClick={toggleRole}
+                disabled={salvandoRole || (isSelf && role === "admin")}
+                title={
+                  isSelf && role === "admin"
+                    ? "Você não pode remover seu próprio acesso de admin por aqui"
+                    : undefined
+                }
+                className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg border whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
+                  role === "admin"
+                    ? "border-danger text-danger hover:bg-danger/10"
+                    : "border-primary text-primary hover:bg-primary/10"
+                }`}
+              >
+                {salvandoRole ? "Salvando…" : role === "admin" ? "Remover admin" : "Tornar admin"}
+              </button>
               <button
                 onClick={toggleContaAtiva}
                 disabled={salvandoConta}
