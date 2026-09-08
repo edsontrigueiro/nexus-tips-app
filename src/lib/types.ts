@@ -80,6 +80,7 @@ export interface Operation {
   valor: number;
   odd_obtida: number | null;
   status: OperationStatus;
+  finalizada_em: string | null;
   created_at: string;
 }
 
@@ -108,6 +109,7 @@ export interface AppSettings {
   id: number;
   casa_nome: string | null;
   casa_link: string | null;
+  whatsapp_link: string | null;
   updated_at: string;
 }
 
