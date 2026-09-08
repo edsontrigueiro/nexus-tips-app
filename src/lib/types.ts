@@ -49,6 +49,7 @@ export interface Signal {
   status: SignalStatus;
   live: boolean;
   tipo: SignalTipo;
+  horario_jogo: string | null;
   casa_nome: string | null;
   casa_link: string | null;
   sugestao_tipo: SugestaoTipo | null;
