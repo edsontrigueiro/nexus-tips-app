@@ -150,16 +150,16 @@ export function DashboardSidebar({
       </div>
 
       <div className="p-4 flex flex-col gap-2">
-        {casaLink && (
-          
+        {casaLink ? (
+          <Link
             href={casaLink}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-outline text-[11px] font-semibold text-center py-2 rounded-lg"
           >
             Cadastre-se na {casaNome || "casa de apostas"}
-          </a>
-        )}
+          </Link>
+        ) : null}
         <div
           className={`card p-3.5 flex items-center gap-2.5 ${
             subscribed ? "border-success/35" : ""
