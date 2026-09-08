@@ -387,16 +387,16 @@ export default function EventosPage() {
                 )}
 
                 <div className="flex items-center justify-end gap-2 pt-3 mt-3 border-t border-border">
-                  {signal.casa_link && (
-                    
+                  {signal.casa_link ? (
+                    <Link
                       href={signal.casa_link}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn-outline text-xs px-4 py-2"
                     >
                       Apostar na {signal.casa_nome || "casa recomendada"}
-                    </a>
-                  )}
+                    </Link>
+                  ) : null}
                   {!formAberto && (
                     <button
                       onClick={() => abrirFormulario(signal)}
