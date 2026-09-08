@@ -7,7 +7,7 @@ import type { Signal, SignalLeg, Operation } from "@/lib/types";
 import { sugestaoDoSinal } from "@/lib/sugestao";
 
 type SignalRow = Signal & { signal_legs: SignalLeg[] };
-type Filtro = "todos" | "vivo" | "encerrados";
+type Filtro = "todos" | "vivo";
 
 export default function EventosPage() {
   const supabase = createClient();
@@ -32,9 +32,13 @@ export default function EventosPage() {
     let operationsChannel: ReturnType<typeof supabase.channel> | null = null;
 
     async function reloadSignals() {
+      // Só sinais ainda não resolvidos aparecem em Eventos. Assim que o admin marca
+      // green ou red, esse filtro já tira o sinal daqui na próxima recarga (disparada
+      // pelo canal realtime abaixo) — ele passa a viver só em Performance/Histórico.
       const { data } = await supabase
         .from("signals")
         .select("*, signal_legs(*)")
+        .eq("status", "no_ar")
         .order("created_at", { ascending: false });
       setSignals((data as SignalRow[]) || []);
     }
@@ -151,12 +155,13 @@ export default function EventosPage() {
   const filtros: { id: Filtro; label: string }[] = [
     { id: "todos", label: "Todos" },
     { id: "vivo", label: "Ao vivo" },
-    { id: "encerrados", label: "Encerrados" },
   ];
 
+  // Não existe mais filtro "Encerrados" aqui: a própria query já exclui green/red, então
+  // esse filtro sempre voltaria vazio. Sinal resolvido mora em Performance e, se o
+  // usuário marcou operação, em Histórico.
   const filteredSignals = signals.filter((s) => {
     if (filtro === "vivo") return s.live;
-    if (filtro === "encerrados") return s.status === "green" || s.status === "red";
     return true;
   });
 
