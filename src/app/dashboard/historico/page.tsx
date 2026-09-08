@@ -1,49 +1,166 @@
-import { createClient } from "@/lib/supabase/server";
-import type { Signal, SignalLeg } from "@/lib/types";
+"use client";
 
-type SignalRow = Signal & { signal_legs: SignalLeg[] };
+import { Fragment, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import type { Operation, Signal } from "@/lib/types";
 
-export default async function HistoricoPage() {
+type OperationRow = Operation & { signals: Signal };
+type Filtro = "todos" | "green" | "red" | "andamento";
+
+function oddEfetiva(op: OperationRow): number {
+  return op.odd_obtida ?? op.signals.odd;
+}
+
+function retornoOf(op: OperationRow): number | null {
+  if (op.status === "green") return op.valor * oddEfetiva(op);
+  if (op.status === "red") return 0;
+  return null;
+}
+
+function formatData(iso: string | null) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export default function HistoricoPage() {
   const supabase = createClient();
+  const [subscribed, setSubscribed] = useState(false);
+  const [operations, setOperations] = useState<OperationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filtro, setFiltro] = useState<Filtro>("todos");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Histórico é da plataforma inteira (todo sinal já encerrado), não das operações de um
-  // usuário — por isso não é travado por assinatura, igual no protótipo.
-  const { data: signalsData } = await supabase
-    .from("signals")
-    .select("*, signal_legs(*)")
-    .in("status", ["green", "red"])
-    .order("created_at", { ascending: false });
+  useEffect(() => {
+    async function init() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
-  const signals: SignalRow[] = (signalsData as SignalRow[]) || [];
-  const greens = signals.filter((s) => s.status === "green").length;
-  const reds = signals.filter((s) => s.status === "red").length;
-  const assertividade = signals.length ? Math.round((greens / signals.length) * 100) : null;
+      const { data: activeSub } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "ativa")
+        .limit(1)
+        .maybeSingle();
+      const isSubscribed = !!activeSub;
+      setSubscribed(isSubscribed);
 
+      if (isSubscribed) {
+        // Histórico agora é pessoal: as operações que ESTE usuário já marcou, com o
+        // resultado de cada uma — por isso é travado por assinatura, igual Eventos.
+        const { data } = await supabase
+          .from("operations")
+          .select("*, signals(*)")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+        setOperations((data as OperationRow[]) || []);
+      }
+
+      setLoading(false);
+    }
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filtered = useMemo(
+    () => operations.filter((o) => filtro === "todos" || o.status === filtro),
+    [operations, filtro]
+  );
+
+  const greens = operations.filter((o) => o.status === "green").length;
+  const reds = operations.filter((o) => o.status === "red").length;
+  const settled = greens + reds;
+  const assertividade = settled ? Math.round((greens / settled) * 100) : null;
+
+  const statusLabel: Record<string, string> = {
+    andamento: "EM ANDAMENTO",
+    green: "GREEN",
+    red: "RED",
+  };
   const statusColor: Record<string, string> = {
+    andamento: "bg-info/10 border-info text-info",
     green: "bg-success/10 border-success text-success",
     red: "bg-danger/10 border-danger text-danger",
   };
 
-  return (
-    <div className="flex flex-col gap-5 max-w-3xl">
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 7v5l3.5 2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span className="text-xs font-bold tracking-wide text-primary">HISTÓRICO</span>
-        </div>
-        <h1 className="text-2xl font-bold mb-1">Sinais já encerrados</h1>
-        <p className="text-text2 text-sm">
-          Todo sinal publicado na plataforma, com o resultado real — sem edição, sem esconder red.
-        </p>
+  const filtros: { id: Filtro; label: string }[] = [
+    { id: "todos", label: "Todos" },
+    { id: "green", label: "Green" },
+    { id: "red", label: "Red" },
+    { id: "andamento", label: "Em andamento" },
+  ];
+
+  const header = (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3.5 2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className="text-xs font-bold tracking-wide text-primary">HISTÓRICO</span>
       </div>
+      <h1 className="text-2xl font-bold mb-1">Suas operações</h1>
+      <p className="text-text2 text-sm">
+        Todas as operações que você já marcou, com o resultado de cada uma.
+      </p>
+    </div>
+  );
+
+  if (!loading && !subscribed) {
+    return (
+      <div className="flex flex-col gap-5 max-w-4xl">
+        {header}
+        <div className="relative">
+          <div className="flex flex-col gap-2.5 blur-[5px] opacity-40 pointer-events-none" aria-hidden>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="card p-4">
+                <div className="text-sm font-bold">Time A x Time B</div>
+                <div className="text-xs text-text2 mt-1">R$ 100 · ODD 1.85 · GREEN</div>
+              </div>
+            ))}
+          </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6">
+            <div className="w-11 h-11 rounded-full bg-elevated border border-border flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA8BC" strokeWidth="2">
+                <rect x="5" y="11" width="14" height="9" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div>
+              <div className="font-bold text-base">Histórico travado</div>
+              <p className="text-text2 text-sm mt-1 max-w-xs">
+                Assine um plano para acompanhar o histórico completo das suas operações.
+              </p>
+            </div>
+            <Link href="/dashboard/planos" className="btn-primary text-sm px-5 py-2.5">
+              Ver planos de assinatura
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-5 max-w-4xl">
+      {header}
 
       <div className="grid grid-cols-3 gap-4">
         <div className="card p-6">
-          <div className="text-xs font-semibold text-text2">SINAIS ENCERRADOS</div>
-          <div className="font-mono text-2xl font-semibold mt-2.5">{signals.length}</div>
+          <div className="text-xs font-semibold text-text2">OPERAÇÕES ENCERRADAS</div>
+          <div className="font-mono text-2xl font-semibold mt-2.5">{settled}</div>
         </div>
         <div className="card p-6">
           <div className="text-xs font-semibold text-text2">ASSERTIVIDADE</div>
@@ -61,75 +178,128 @@ export default async function HistoricoPage() {
         </div>
       </div>
 
-      {signals.length === 0 ? (
+      <div className="inline-flex bg-surface border border-border rounded-[10px] p-1 w-fit flex-wrap">
+        {filtros.map((f) => (
+          <button
+            key={f.id}
+            onClick={() => setFiltro(f.id)}
+            className={`px-4 py-2 rounded-[7px] text-[12.5px] font-semibold transition-colors ${
+              filtro === f.id ? "bg-primary text-white" : "text-text2 hover:text-text"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="card p-7 text-center text-sm text-text2">Carregando…</div>
+      ) : filtered.length === 0 ? (
         <div className="card p-7 text-center text-sm text-text2">
-          Nenhum sinal encerrado ainda. Assim que o time confirmar um resultado, ele aparece aqui.
+          {operations.length === 0
+            ? "Você ainda não marcou nenhuma operação. Vá em Eventos para começar."
+            : "Nenhuma operação nesse filtro agora."}
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {signals.map((signal) => {
-            const isBilhete = signal.tipo === "bilhete";
-            const legs = (signal.signal_legs || []).slice().sort((a, b) => a.ordem - b.ordem);
-            return (
-              <div key={signal.id} className="card p-5 flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    {isBilhete && (
-                      <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                        BILHETE
-                      </span>
-                    )}
-                    <div className="text-[10px] text-muted font-semibold tracking-wide">
-                      {signal.competicao} ·{" "}
-                      {new Date(signal.created_at).toLocaleDateString("pt-BR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                      })}
-                    </div>
-                  </div>
-
-                  {isBilhete ? (
-                    <>
-                      <div className="text-sm font-bold mt-1">{legs.length} jogos combinados</div>
-                      <div className="flex flex-col gap-1 mt-2">
-                        {legs.map((leg) => (
-                          <div key={leg.id} className="text-xs text-text2">
-                            <span className="font-semibold text-text">
-                              {leg.time_a} x {leg.time_b}
-                            </span>{" "}
-                            <span className="text-muted">
-                              · {leg.mercado} · ODD {leg.odd}
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-[11px] font-bold text-text2 tracking-wide">
+                  <th className="px-4 py-3">EVENTO</th>
+                  <th className="px-4 py-3">RESULTADO</th>
+                  <th className="px-4 py-3">STAKE</th>
+                  <th className="px-4 py-3">ODD</th>
+                  <th className="px-4 py-3">RETORNO</th>
+                  <th className="px-4 py-3">FINALIZADA EM</th>
+                  <th className="px-4 py-3">AÇÃO</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((op) => {
+                  const isBilhete = op.signals.tipo === "bilhete";
+                  const retorno = retornoOf(op);
+                  const expanded = expandedId === op.id;
+                  return (
+                    <Fragment key={op.id}>
+                      <tr className="border-b border-border last:border-0">
+                        <td className="px-4 py-3 max-w-[220px]">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {isBilhete && (
+                              <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded flex-none">
+                                BILHETE
+                              </span>
+                            )}
+                            <span className="font-semibold truncate">
+                              {isBilhete ? op.signals.time_b : `${op.signals.time_a} x ${op.signals.time_b}`}
                             </span>
                           </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-sm font-bold mt-1">
-                        {signal.time_a} x {signal.time_b}
-                      </div>
-                      <div className="text-xs text-text2 mt-1">
-                        <span className="font-semibold text-text">{signal.mercado}</span>
-                        {signal.estrategia && <span className="text-muted"> · {signal.estrategia}</span>}
-                      </div>
-                    </>
-                  )}
-                </div>
-                <div className="flex-none flex flex-col items-end gap-1.5">
-                  <span
-                    className={`text-[10px] font-bold tracking-wide rounded-full px-2.5 py-1 border whitespace-nowrap ${
-                      statusColor[signal.status]
-                    }`}
-                  >
-                    {signal.status === "green" ? "GREEN" : "RED"}
-                  </span>
-                  <span className="font-mono text-lg font-semibold">{signal.odd}</span>
-                </div>
-              </div>
-            );
-          })}
+                          <div className="text-[11px] text-muted truncate">
+                            {isBilhete ? "Combinados" : op.signals.mercado}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`text-[10px] font-bold tracking-wide rounded-full px-2.5 py-1 border whitespace-nowrap ${statusColor[op.status]}`}
+                          >
+                            {statusLabel[op.status]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-mono whitespace-nowrap">
+                          R$ {op.valor.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 font-mono">{oddEfetiva(op)}</td>
+                        <td className="px-4 py-3 font-mono whitespace-nowrap">
+                          {retorno === null ? (
+                            "—"
+                          ) : (
+                            <span className={retorno > 0 ? "text-success" : "text-danger"}>
+                              R$ {retorno.toFixed(2)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-text2 whitespace-nowrap">
+                          {formatData(op.finalizada_em)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => setExpandedId(expanded ? null : op.id)}
+                            className="text-[12px] font-semibold text-primary hover:underline whitespace-nowrap"
+                          >
+                            {expanded ? "Ocultar" : "Ver detalhes"}
+                          </button>
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr className="border-b border-border last:border-0 bg-elevated/40">
+                          <td colSpan={7} className="px-4 py-3.5 text-xs text-text2">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1.5">
+                              <div>
+                                <span className="text-muted">Competição:</span> {op.signals.competicao}
+                              </div>
+                              {op.signals.estrategia && (
+                                <div>
+                                  <span className="text-muted">Estratégia:</span> {op.signals.estrategia}
+                                </div>
+                              )}
+                              {op.signals.casa_nome && (
+                                <div>
+                                  <span className="text-muted">Casa:</span> {op.signals.casa_nome}
+                                </div>
+                              )}
+                              <div>
+                                <span className="text-muted">Marcada em:</span> {formatData(op.created_at)}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
