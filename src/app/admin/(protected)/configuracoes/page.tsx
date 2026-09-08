@@ -10,16 +10,18 @@ export default function AdminConfiguracoesPage() {
   const [saved, setSaved] = useState(false);
   const [casaNome, setCasaNome] = useState("");
   const [casaLink, setCasaLink] = useState("");
+  const [whatsappLink, setWhatsappLink] = useState("");
 
   useEffect(() => {
     async function load() {
       const { data } = await supabase
         .from("app_settings")
-        .select("casa_nome, casa_link")
+        .select("casa_nome, casa_link, whatsapp_link")
         .eq("id", 1)
         .maybeSingle();
       setCasaNome(data?.casa_nome || "");
       setCasaLink(data?.casa_link || "");
+      setWhatsappLink(data?.whatsapp_link || "");
       setLoading(false);
     }
     load();
@@ -34,6 +36,7 @@ export default function AdminConfiguracoesPage() {
       .update({
         casa_nome: casaNome || null,
         casa_link: casaLink || null,
+        whatsapp_link: whatsappLink || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", 1);
@@ -74,6 +77,22 @@ export default function AdminConfiguracoesPage() {
               value={casaLink}
               onChange={(e) => setCasaLink(e.target.value)}
             />
+          </div>
+          <div className="h-px bg-border my-1" />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-text2">
+              Link do WhatsApp de suporte
+            </label>
+            <input
+              className="input-field"
+              placeholder="https://wa.me/55..."
+              value={whatsappLink}
+              onChange={(e) => setWhatsappLink(e.target.value)}
+            />
+            <p className="text-[11px] text-muted">
+              Aparece no card &quot;Canais oficiais&quot; da página de Suporte do usuário. Deixe
+              em branco pra esconder o botão.
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <button type="submit" className="btn-primary text-sm px-5 py-2.5 self-start" disabled={saving}>
