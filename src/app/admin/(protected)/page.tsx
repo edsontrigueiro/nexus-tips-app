@@ -5,10 +5,14 @@ import { createClient } from "@/lib/supabase/client";
 import { PLANOS } from "@/lib/types";
 import type { Subscription, Signal, SupportTicket, Profile } from "@/lib/types";
 
-function mrrDeAssinaturas(subs: Subscription[]) {
-  // MRR aproximado: normaliza cada plano ativo pro equivalente mensal.
+function mrrDeAssinaturas(subs: Subscription[], adminIds: Set<string>) {
+  // MRR aproximado: normaliza cada plano ativo pro equivalente mensal. Assinaturas de
+  // contas admin nunca entram aqui (mesmo que tenham valor > 0, ex: teste manual) — e
+  // assinaturas patrocinadas já têm valor 0, então já saem sozinhas da soma.
   const fatorMensal: Record<string, number> = { mensal: 1, semestral: 1 / 6, anual: 1 / 12 };
-  return subs.reduce((acc, s) => acc + s.valor * (fatorMensal[s.plano] ?? 1), 0);
+  return subs
+    .filter((s) => !adminIds.has(s.user_id))
+    .reduce((acc, s) => acc + s.valor * (fatorMensal[s.plano] ?? 1), 0);
 }
 
 export default function AdminVisaoGeralPage() {
@@ -96,7 +100,8 @@ export default function AdminVisaoGeralPage() {
   const assinaturasAtivas = subs.filter((s) => s.status === "ativa");
   const sinaisNoAr = signals.filter((s) => s.status === "no_ar");
   const ticketsAbertos = tickets.filter((t) => t.status === "aberto");
-  const mrr = mrrDeAssinaturas(assinaturasAtivas);
+  const adminIds = new Set(users.filter((u) => u.role === "admin").map((u) => u.id));
+  const mrr = mrrDeAssinaturas(assinaturasAtivas, adminIds);
 
   const cards = [
     { label: "MRR ESTIMADO", value: loading ? "—" : `R$ ${mrr.toFixed(2)}` },
