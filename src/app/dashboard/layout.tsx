@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { DashboardSidebar } from "@/components/DashboardSidebar";
+import { DashboardShell } from "@/components/DashboardShell";
 import { OnboardingTutorial } from "@/components/OnboardingTutorial";
 
 export default async function DashboardLayout({
@@ -38,28 +38,16 @@ export default async function DashboardLayout({
     .maybeSingle();
 
   return (
-    <div className="min-h-screen flex bg-bg text-text">
+    <>
       <OnboardingTutorial />
-      <DashboardSidebar
+      <DashboardShell
         name={profile?.name || user.email || "Você"}
         subscribed={!!activeSub}
         casaNome={settings?.casa_nome || null}
         casaLink={settings?.casa_link || null}
-      />
-      <div className="flex-1 flex flex-col">
-        <div className="h-16 flex-none flex items-center justify-end px-8 border-b border-border">
-          <div
-            className={`rounded-full px-3.5 py-1.5 text-xs font-bold tracking-wide border ${
-              activeSub
-                ? "bg-success/10 border-success text-success"
-                : "bg-elevated border-border text-text2"
-            }`}
-          >
-            {activeSub ? "ASSINATURA ATIVA" : "CONTA GRATUITA"}
-          </div>
-        </div>
-        <div className="flex-1 overflow-auto p-8">{children}</div>
-      </div>
-    </div>
+      >
+        {children}
+      </DashboardShell>
+    </>
   );
 }
