@@ -7,23 +7,7 @@ import type { Signal, SignalLeg, Operation } from "@/lib/types";
 import { sugestaoDoSinal } from "@/lib/sugestao";
 
 type SignalRow = Signal & { signal_legs: SignalLeg[] };
-type Filtro = "todos" | "vivo";
-
-// "Hoje, 16:30" / "Amanhã, 16:30" / "08/09, 16:30" — sempre com hora, pra não obrigar o
-// usuário a fazer conta de fuso: o valor já vem convertido pro horário local do navegador.
-function fmtHorarioJogo(iso: string): string {
-  const d = new Date(iso);
-  const agora = new Date();
-  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
-  const amanha = new Date(hoje);
-  amanha.setDate(hoje.getDate() + 1);
-  const dData = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-
-  if (dData.getTime() === hoje.getTime()) return `Hoje, ${hora}`;
-  if (dData.getTime() === amanha.getTime()) return `Amanhã, ${hora}`;
-  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}, ${hora}`;
-}
+type Filtro = "todos" | "vivo" | "encerrados";
 
 export default function EventosPage() {
   const supabase = createClient();
@@ -48,13 +32,9 @@ export default function EventosPage() {
     let operationsChannel: ReturnType<typeof supabase.channel> | null = null;
 
     async function reloadSignals() {
-      // Só sinais ainda não resolvidos aparecem em Eventos. Assim que o admin marca
-      // green ou red, esse filtro já tira o sinal daqui na próxima recarga (disparada
-      // pelo canal realtime abaixo) — ele passa a viver só em Performance/Histórico.
       const { data } = await supabase
         .from("signals")
         .select("*, signal_legs(*)")
-        .eq("status", "no_ar")
         .order("created_at", { ascending: false });
       setSignals((data as SignalRow[]) || []);
     }
@@ -171,13 +151,12 @@ export default function EventosPage() {
   const filtros: { id: Filtro; label: string }[] = [
     { id: "todos", label: "Todos" },
     { id: "vivo", label: "Ao vivo" },
+    { id: "encerrados", label: "Encerrados" },
   ];
 
-  // Não existe mais filtro "Encerrados" aqui: a própria query já exclui green/red, então
-  // esse filtro sempre voltaria vazio. Sinal resolvido mora em Performance e, se o
-  // usuário marcou operação, em Histórico.
   const filteredSignals = signals.filter((s) => {
     if (filtro === "vivo") return s.live;
+    if (filtro === "encerrados") return s.status === "green" || s.status === "red";
     return true;
   });
 
@@ -286,7 +265,6 @@ export default function EventosPage() {
                       )}
                       <span className="text-[10px] text-muted font-semibold tracking-wide">
                         {signal.competicao}
-                        {signal.horario_jogo && ` · ${fmtHorarioJogo(signal.horario_jogo)}`}
                       </span>
                     </div>
 
@@ -363,7 +341,7 @@ export default function EventosPage() {
 
                 {formAberto && !alreadyMarked && (
                   <div className="mt-3 pt-3 border-t border-border flex flex-col gap-2.5">
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div className="flex flex-col gap-1">
                         <label className="text-[10.5px] font-semibold text-text2">
                           Valor que você entrou
