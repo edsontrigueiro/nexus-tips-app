@@ -175,8 +175,8 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
       >
         {/* HEADER */}
         <div className="p-6 border-b border-border">
-          <div className="flex items-start justify-between gap-4">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg font-bold">{user.name || "Sem nome"}</h2>
                 <span
@@ -204,7 +204,7 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
                 {user.phone || "Telefone não informado"}
               </div>
             </div>
-            <div className="flex-none flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={toggleRole}
                 disabled={salvandoRole || (isSelf && role === "admin")}
@@ -242,12 +242,12 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
             </div>
           </div>
 
-          <div className="flex gap-5 mt-5 border-b border-border -mb-6 pt-1">
+          <div className="flex gap-5 mt-5 border-b border-border -mb-6 pt-1 overflow-x-auto">
             {tabs.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`text-[13px] font-semibold pb-3 border-b-2 transition-colors ${
+                className={`text-[13px] font-semibold pb-3 border-b-2 transition-colors whitespace-nowrap ${
                   tab === t.id
                     ? "border-primary text-text"
                     : "border-transparent text-text2 hover:text-text"
@@ -268,7 +268,7 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
             <div className="text-sm text-text2 text-center py-8">Carregando…</div>
           ) : tab === "resumo" ? (
             <div className="flex flex-col gap-5">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <div className="text-[10px] font-bold tracking-wide text-muted">
                     CADASTRADO EM
@@ -371,7 +371,7 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="card p-4">
                   <div className="text-[10px] font-bold tracking-wide text-muted">
                     ASSERTIVIDADE
