@@ -157,7 +157,7 @@ export default function HistoricoPage() {
     <div className="flex flex-col gap-5 max-w-4xl">
       {header}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card p-6">
           <div className="text-xs font-semibold text-text2">OPERAÇÕES ENCERRADAS</div>
           <div className="font-mono text-2xl font-semibold mt-2.5">{settled}</div>
@@ -203,7 +203,7 @@ export default function HistoricoPage() {
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-[11px] font-bold text-text2 tracking-wide">
                   <th className="px-4 py-3">EVENTO</th>
