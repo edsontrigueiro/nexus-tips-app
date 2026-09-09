@@ -83,7 +83,7 @@ export default function AdminAssinaturasPage() {
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {(["todas", "ativa", "cancelada", "atrasada"] as Filtro[]).map((f) => (
           <button
             key={f}
@@ -102,7 +102,7 @@ export default function AdminAssinaturasPage() {
       ) : (
         <div className="flex flex-col gap-2">
           {visiveis.map((s) => (
-            <div key={s.id} className="card p-4 flex items-center justify-between gap-4">
+            <div key={s.id} className="card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-sm font-semibold truncate">
                   {users[s.user_id]?.name || users[s.user_id]?.email || s.user_id}
@@ -111,7 +111,7 @@ export default function AdminAssinaturasPage() {
                   {PLANOS[s.plano].label} · R$ {s.valor.toFixed(2)} · {s.provider}
                 </div>
               </div>
-              <div className="flex-none flex items-center gap-3">
+              <div className="flex-none flex items-center gap-3 flex-wrap">
                 <span
                   className={`text-[10px] font-bold tracking-wide rounded-full px-2.5 py-1 border ${statusColor[s.status]}`}
                 >
