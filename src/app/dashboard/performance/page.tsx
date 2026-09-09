@@ -309,7 +309,7 @@ export default function PerformancePage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead>
                     <tr className="text-left text-[10px] font-bold tracking-wide text-muted border-b border-border">
                       <th className="pb-2.5 pr-3">Evento</th>
