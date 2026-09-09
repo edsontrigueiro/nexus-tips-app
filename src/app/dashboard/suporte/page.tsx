@@ -262,7 +262,7 @@ export default function SuportePage() {
   }
 
   return (
-    <div className="flex gap-6 max-w-6xl">
+    <div className="flex flex-col md:flex-row gap-6 max-w-6xl">
       <div className="flex-1 flex flex-col gap-5 min-w-0">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -381,8 +381,8 @@ export default function SuportePage() {
             </div>
           </>
         ) : (
-          <div className="flex gap-6">
-            <div className="w-72 flex-none flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="w-full md:w-72 md:flex-none flex flex-col gap-4">
               <form onSubmit={criarTicket} className="card p-4 flex flex-col gap-2.5">
                 <div className="text-xs font-bold text-text2">Novo chamado</div>
                 <input
@@ -487,7 +487,7 @@ export default function SuportePage() {
         )}
       </div>
 
-      <div className="w-72 flex-none flex flex-col gap-4">
+      <div className="w-full md:w-72 md:flex-none flex flex-col gap-4">
         <div className="card p-4 flex flex-col gap-3">
           <div className="text-xs font-bold text-text2">CANAIS OFICIAIS</div>
           {whatsappLink ? (
