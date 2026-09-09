@@ -103,8 +103,8 @@ export default async function VisaoGeralPage() {
         {operations.length > 0 ? (
           <div className="flex flex-col gap-3">
             {operations.map((op: any) => (
-              <div key={op.id} className="card p-4 flex items-center justify-between">
-                <div>
+              <div key={op.id} className="card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="min-w-0">
                   <div className="text-sm font-semibold flex items-center gap-1.5">
                     {op.signals.tipo === "bilhete" && (
                       <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded flex-none">
@@ -119,7 +119,7 @@ export default async function VisaoGeralPage() {
                     {op.signals.tipo === "bilhete" ? "Combinados" : op.signals.mercado}
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between sm:justify-end gap-4 flex-none">
                   <div className="text-right">
                     <div className="text-[10px] text-muted">
                       ODD {op.odd_obtida ?? op.signals.odd} · R$ {op.valor}
@@ -166,7 +166,7 @@ export default async function VisaoGeralPage() {
         </Link>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card p-6">
           <div className="text-xs font-semibold text-text2">ASSERTIVIDADE NEXUS TIPS · 30 DIAS</div>
           <div className="text-[11px] text-muted mt-1">Performance geral da plataforma.</div>
