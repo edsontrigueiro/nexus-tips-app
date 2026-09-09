@@ -113,8 +113,8 @@ export default function AdminSuportePage() {
   const selectedTicket = tickets.find((t) => t.id === selected);
 
   return (
-    <div className="flex gap-6 max-w-5xl">
-      <div className="w-80 flex-none flex flex-col gap-4">
+    <div className="flex flex-col md:flex-row gap-6 max-w-5xl">
+      <div className="w-full md:w-80 md:flex-none flex flex-col gap-4">
         <div>
           <span className="text-xs font-bold tracking-wide text-primary">ADMIN</span>
           <h1 className="text-xl font-bold mt-2 mb-1">Suporte</h1>
