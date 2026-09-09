@@ -46,11 +46,6 @@ export default function AdminSinaisPage() {
   const [bilheteTitulo, setBilheteTitulo] = useState("");
   const [legs, setLegs] = useState<LegForm[]>([{ ...EMPTY_LEG }, { ...EMPTY_LEG }]);
 
-  // Horário em que o jogo (ou o primeiro jogo, se for bilhete) vai rolar. Formato do
-  // <input type="datetime-local">: "AAAA-MM-DDTHH:mm", sem timezone — tratamos como
-  // horário local de quem está publicando e convertemos pra ISO só na hora de salvar.
-  const [horarioJogo, setHorarioJogo] = useState("");
-
   // Direcionamento pra casa de apostas e sugestão de entrada — valem tanto pra sinal
   // simples quanto pra bilhete, por isso ficam fora do "form"/"legs" específicos de cada um.
   const [casaNome, setCasaNome] = useState("");
@@ -127,7 +122,6 @@ export default function AdminSinaisPage() {
     });
     setBilheteTitulo("");
     setLegs([{ ...EMPTY_LEG }, { ...EMPTY_LEG }]);
-    setHorarioJogo("");
     setCasaNome(defaultCasa.nome);
     setCasaLink(defaultCasa.link);
     setSugestaoTipo("nenhuma");
@@ -150,11 +144,6 @@ export default function AdminSinaisPage() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    // O <input datetime-local> não carrega timezone — new Date(...) interpreta como
-    // horário local do navegador, que é exatamente o que queremos (horário de quem tá
-    // publicando). .toISOString() já converte pra UTC antes de salvar no Supabase.
-    const horarioJogoIso = horarioJogo ? new Date(horarioJogo).toISOString() : null;
-
     const sugestaoValorNum = parseFloat(sugestaoValor.replace(",", "."));
     const sugestaoCampos =
       sugestaoTipo !== "nenhuma" && !isNaN(sugestaoValorNum) && sugestaoValorNum > 0
@@ -162,7 +151,7 @@ export default function AdminSinaisPage() {
         : { sugestao_tipo: null, sugestao_valor: null };
 
     if (tipo === "simples") {
-      // Esse insert é o que faz o sinal aparecer na hora em Eventos de todo
+      // Esse insert é o que faz o sinal aparecer na hora na página Eventos de todo
       // usuário ativo — é a mesma tabela, com Realtime ligado (ver migration).
       const { error } = await supabase.from("signals").insert({
         competicao: form.competicao,
@@ -174,7 +163,6 @@ export default function AdminSinaisPage() {
         rationale: form.rationale || null,
         live: form.live,
         tipo: "simples",
-        horario_jogo: horarioJogoIso,
         casa_nome: casaNome || null,
         casa_link: casaLink || null,
         ...sugestaoCampos,
@@ -210,7 +198,6 @@ export default function AdminSinaisPage() {
         rationale: form.rationale || null,
         live: form.live,
         tipo: "bilhete",
-        horario_jogo: horarioJogoIso,
         casa_nome: casaNome || null,
         casa_link: casaLink || null,
         ...sugestaoCampos,
@@ -285,23 +272,11 @@ export default function AdminSinaisPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-semibold text-text2">
-            Horário do jogo {tipo === "bilhete" && "(do primeiro jogo do bilhete)"} — opcional
-          </label>
-          <input
-            className="input-field text-sm"
-            type="datetime-local"
-            value={horarioJogo}
-            onChange={(e) => setHorarioJogo(e.target.value)}
-          />
-        </div>
-
         <div className="border border-border rounded-lg p-3.5 flex flex-col gap-3">
           <div className="text-[10px] font-bold text-muted tracking-wide">
             DIRECIONAMENTO E SUGESTÃO DE ENTRADA
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
               className="input-field text-sm"
               placeholder="Nome da casa (ex: Bet365)"
@@ -315,7 +290,7 @@ export default function AdminSinaisPage() {
               onChange={(e) => setCasaLink(e.target.value)}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <select
               className="input-field text-sm"
               value={sugestaoTipo}
@@ -355,7 +330,7 @@ export default function AdminSinaisPage() {
         </div>
 
         {tipo === "simples" ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
               className="input-field"
               placeholder="Competição"
@@ -422,7 +397,7 @@ export default function AdminSinaisPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3.5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input
                 className="input-field"
                 placeholder="Título do bilhete (ex: Bilhete Rodada 24)"
@@ -454,7 +429,7 @@ export default function AdminSinaisPage() {
                       </button>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <input
                       className="input-field text-xs py-2"
                       placeholder="Competição"
@@ -549,16 +524,7 @@ export default function AdminSinaisPage() {
                             BILHETE
                           </span>
                         )}
-                        <div className="text-[10px] text-muted font-semibold">
-                          {s.competicao}
-                          {s.horario_jogo &&
-                            ` · ${new Date(s.horario_jogo).toLocaleString("pt-BR", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}`}
-                        </div>
+                        <div className="text-[10px] text-muted font-semibold">{s.competicao}</div>
                       </div>
                       <div className="text-sm font-semibold truncate">
                         {s.tipo === "bilhete"
