@@ -47,6 +47,10 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
   const [novoPlano, setNovoPlano] = useState<Plano>("mensal");
   const [salvandoPlano, setSalvandoPlano] = useState(false);
   const [planoErro, setPlanoErro] = useState<string | null>(null);
+  // Conta patrocinada: acesso liberado (mesmo status "ativa"), mas com valor zerado e
+  // provider próprio — assim ela nunca entra em nenhuma soma de receita/MRR, mesmo que
+  // alguém esqueça de filtrar por provider no futuro (0 não muda soma nenhuma).
+  const [patrocinada, setPatrocinada] = useState(false);
 
   // Pra saber se o admin logado está olhando o próprio perfil — usado só pra impedir
   // que ele tire o próprio acesso de admin sem querer e fique trancado pra fora do
@@ -127,9 +131,9 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
     const { error } = await supabase.from("subscriptions").insert({
       user_id: user.id,
       plano: novoPlano,
-      valor: PLANOS[novoPlano].valor,
+      valor: patrocinada ? 0 : PLANOS[novoPlano].valor,
       status: "ativa",
-      provider: "manual",
+      provider: patrocinada ? "patrocinada" : "manual",
     });
 
     setSalvandoPlano(false);
@@ -137,6 +141,7 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
       setPlanoErro("Não deu pra ativar o plano. Tente de novo.");
       return;
     }
+    setPatrocinada(false);
     await loadSubs();
   }
 
@@ -330,7 +335,7 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
                   GERENCIAR PLANO
                 </div>
                 <div className="card p-4 flex flex-col gap-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                     <select
                       className="input-field text-sm py-2 flex-1"
                       value={novoPlano}
@@ -354,6 +359,15 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
                         : "Ativar plano"}
                     </button>
                   </div>
+                  <label className="flex items-center gap-2 text-xs text-text2">
+                    <input
+                      type="checkbox"
+                      checked={patrocinada}
+                      onChange={(e) => setPatrocinada(e.target.checked)}
+                    />
+                    Conta patrocinada — libera o acesso deste plano, mas com valor R$ 0,00 e
+                    fora da receita (não entra no MRR)
+                  </label>
                   {assinaturaAtiva && (
                     <button
                       onClick={cancelarAssinatura}
@@ -365,8 +379,9 @@ export function AdminUserModal({ user, onClose }: { user: Profile; onClose: () =
                   )}
                   {planoErro && <p className="text-danger text-[11px]">{planoErro}</p>}
                   <p className="text-[11px] text-muted">
-                    Ativar/trocar cancela a assinatura atual (se houver) e cria uma nova, manual —
-                    use isso pra quem pagou fora do sistema por enquanto.
+                    Ativar/trocar cancela a assinatura atual (se houver) e cria uma nova. Sem a
+                    caixa marcada, é uma assinatura manual normal (conta na receita) — use isso
+                    pra quem pagou fora do sistema por enquanto.
                   </p>
                 </div>
               </div>
