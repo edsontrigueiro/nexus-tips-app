@@ -60,7 +60,11 @@ export default function AdminAssinaturasPage() {
   }
 
   const visiveis = filtro === "todas" ? subs : subs.filter((s) => s.status === filtro);
-  const receitaAtiva = subs.filter((s) => s.status === "ativa").reduce((acc, s) => acc + s.valor, 0);
+  // Assinaturas de contas admin nunca contam na receita (mesmo que tenham valor > 0),
+  // e assinaturas patrocinadas já têm valor 0, então saem sozinhas dessa soma.
+  const receitaAtiva = subs
+    .filter((s) => s.status === "ativa" && users[s.user_id]?.role !== "admin")
+    .reduce((acc, s) => acc + s.valor, 0);
 
   const statusColor: Record<string, string> = {
     ativa: "bg-success/10 border-success text-success",
