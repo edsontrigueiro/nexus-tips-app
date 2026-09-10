@@ -8,7 +8,7 @@ import { sugestaoDoSinal } from "@/lib/sugestao";
 import { temAcessoLiberado } from "@/lib/access";
 
 type SignalRow = Signal & { signal_legs: SignalLeg[] };
-type Filtro = "todos" | "vivo" | "encerrados";
+type Filtro = "todos" | "vivo";
 
 export default function EventosPage() {
   const supabase = createClient();
@@ -28,14 +28,33 @@ export default function EventosPage() {
   const [formOdd, setFormOdd] = useState("");
   const [confirming, setConfirming] = useState(false);
 
+  // Relógio próprio (atualiza a cada 30s) só pra recalcular quais sinais já passaram do
+  // horário marcado — sem isso, "ao vivo automático" só apareceria depois de algum evento
+  // do realtime acontecer, não no exato minuto em que o jogo começa.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  function estaAoVivo(signal: Signal) {
+    if (signal.live) return true;
+    if (!signal.horario_jogo) return false;
+    return signal.status === "no_ar" && new Date(signal.horario_jogo).getTime() <= now;
+  }
+
   useEffect(() => {
     let signalsChannel: ReturnType<typeof supabase.channel> | null = null;
     let operationsChannel: ReturnType<typeof supabase.channel> | null = null;
 
     async function reloadSignals() {
+      // Só "no_ar": assim que o admin marca green, red ou cancelado, o sinal some daqui
+      // sozinho (o botão de status dispara um UPDATE, que recarrega essa lista via o
+      // canal realtime abaixo) — passa a aparecer só em Performance/Histórico.
       const { data } = await supabase
         .from("signals")
         .select("*, signal_legs(*)")
+        .eq("status", "no_ar")
         .order("created_at", { ascending: false });
       setSignals((data as SignalRow[]) || []);
     }
@@ -153,12 +172,12 @@ export default function EventosPage() {
   const filtros: { id: Filtro; label: string }[] = [
     { id: "todos", label: "Todos" },
     { id: "vivo", label: "Ao vivo" },
-    { id: "encerrados", label: "Encerrados" },
   ];
 
+  // "Encerrados" saiu do filtro: sinal green/red/cancelado já nem chega em `signals`
+  // (reloadSignals só busca status "no_ar") — não tem mais nada pra filtrar aqui.
   const filteredSignals = signals.filter((s) => {
-    if (filtro === "vivo") return s.live;
-    if (filtro === "encerrados") return s.status === "green" || s.status === "red";
+    if (filtro === "vivo") return estaAoVivo(s);
     return true;
   });
 
@@ -259,7 +278,7 @@ export default function EventosPage() {
                 <div className="flex items-start justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      {signal.live && <span className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse" />}
+                      {estaAoVivo(signal) && <span className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse" />}
                       {isBilhete && (
                         <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
                           BILHETE
@@ -303,7 +322,7 @@ export default function EventosPage() {
                         statusColor[signal.status]
                       }`}
                     >
-                      {signal.live ? "AO VIVO · " : ""}
+                      {estaAoVivo(signal) ? "AO VIVO · " : ""}
                       {statusLabel[signal.status]}
                     </span>
                     <span className="font-mono text-lg font-semibold">{signal.odd}</span>
