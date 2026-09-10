@@ -33,7 +33,7 @@ export interface Subscription {
   canceled_at: string | null;
 }
 
-export type SignalStatus = "no_ar" | "green" | "red";
+export type SignalStatus = "no_ar" | "green" | "red" | "cancelado";
 export type SignalTipo = "simples" | "bilhete";
 export type SugestaoTipo = "percentual" | "unidades" | "valor";
 
@@ -48,8 +48,10 @@ export interface Signal {
   rationale: string | null;
   status: SignalStatus;
   live: boolean;
-  tipo: SignalTipo;
+  // Horário marcado do jogo. Usado pra calcular "ao vivo" sozinho (sem precisar do check
+  // manual): assim que o horário chega e o sinal ainda está "no_ar", já mostra ao vivo.
   horario_jogo: string | null;
+  tipo: SignalTipo;
   casa_nome: string | null;
   casa_link: string | null;
   sugestao_tipo: SugestaoTipo | null;
@@ -72,7 +74,7 @@ export interface SignalLeg {
   created_at: string;
 }
 
-export type OperationStatus = "andamento" | "green" | "red";
+export type OperationStatus = "andamento" | "green" | "red" | "cancelada";
 
 export interface Operation {
   id: string;
@@ -82,6 +84,20 @@ export interface Operation {
   odd_obtida: number | null;
   status: OperationStatus;
   finalizada_em: string | null;
+  created_at: string;
+}
+
+// Movimento manual de banca (aporte, saque ou ajuste de correção) — ver src/app/dashboard/gestao.
+// "valor" é sempre o delta assinado: aporte positivo, saque negativo, ajuste positivo ou
+// negativo conforme corrige a banca pra cima ou pra baixo.
+export type BancaMovimentoTipo = "aporte" | "saque" | "ajuste";
+
+export interface BancaMovimento {
+  id: string;
+  user_id: string;
+  tipo: BancaMovimentoTipo;
+  valor: number;
+  nota: string | null;
   created_at: string;
 }
 
