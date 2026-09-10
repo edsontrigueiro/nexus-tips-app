@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Operation, Signal } from "@/lib/types";
+import type { BancaMovimento, BancaMovimentoTipo, Operation, Signal } from "@/lib/types";
 
 type OperationRow = Operation & { signals: Signal };
 
@@ -15,6 +15,22 @@ function profitOf(op: OperationRow): number {
   if (op.status === "red") return -op.valor;
   return 0;
 }
+
+function formatData(iso: string) {
+  return new Date(iso).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+const MOVIMENTO_LABEL: Record<BancaMovimentoTipo, string> = {
+  aporte: "Aporte",
+  saque: "Saque",
+  ajuste: "Ajuste",
+};
 
 function ProfitChart({ series }: { series: number[] }) {
   if (series.length < 2) {
@@ -53,10 +69,18 @@ export default function GestaoPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [bancaInicial, setBancaInicial] = useState<number | null>(null);
   const [operations, setOperations] = useState<OperationRow[]>([]);
+  const [movimentos, setMovimentos] = useState<BancaMovimento[]>([]);
   const [loading, setLoading] = useState(true);
   const [valores, setValores] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+
+  // Formulário de movimentação de banca (aporte, saque ou ajuste de correção).
+  const [tipoMovimento, setTipoMovimento] = useState<BancaMovimentoTipo>("aporte");
+  const [valorMovimento, setValorMovimento] = useState("");
+  const [notaMovimento, setNotaMovimento] = useState("");
+  const [salvandoMovimento, setSalvandoMovimento] = useState(false);
+  const [erroMovimento, setErroMovimento] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -76,15 +100,23 @@ export default function GestaoPage() {
         .single();
       setBancaInicial(profile?.banca_inicial ?? null);
 
-      const { data: opsData } = await supabase
-        .from("operations")
-        .select("*, signals(*)")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: true });
+      const [{ data: opsData }, { data: movData }] = await Promise.all([
+        supabase
+          .from("operations")
+          .select("*, signals(*)")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("banca_movimentos")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+      ]);
 
       const ops = (opsData || []) as OperationRow[];
       setOperations(ops);
       setValores(Object.fromEntries(ops.map((o) => [o.id, String(o.valor)])));
+      setMovimentos((movData as BancaMovimento[]) || []);
       setLoading(false);
     }
     init();
@@ -92,10 +124,20 @@ export default function GestaoPage() {
   }, []);
 
   const andamento = useMemo(() => operations.filter((o) => o.status === "andamento"), [operations]);
-  const settled = useMemo(() => operations.filter((o) => o.status !== "andamento"), [operations]);
+  // "Cancelada" não é green nem red — não entra no cálculo de lucro (profitOf já trata isso
+  // devolvendo 0 pra qualquer status que não seja green/red), mas também não fica parada em
+  // "andamento" pra sempre: por isso ela sai daqui e cai direto no histórico.
+  const settled = useMemo(
+    () => operations.filter((o) => o.status === "green" || o.status === "red"),
+    [operations]
+  );
 
   const totalProfit = useMemo(() => settled.reduce((acc, o) => acc + profitOf(o), 0), [settled]);
-  const saldoAtual = (bancaInicial ?? 0) + totalProfit;
+  // Soma de todos os aportes/saques/ajustes que a pessoa registrou manualmente — ver
+  // supabase/migrations/0009_banca_horario_cancelado.sql. Nunca guardamos um "saldo atual"
+  // solto no banco: ele é sempre recalculado a partir do histórico, pra nunca dessincronizar.
+  const totalMovimentos = useMemo(() => movimentos.reduce((acc, m) => acc + m.valor, 0), [movimentos]);
+  const saldoAtual = (bancaInicial ?? 0) + totalProfit + totalMovimentos;
   const performancePct = bancaInicial ? (totalProfit / bancaInicial) * 100 : null;
   const greens = settled.filter((o) => o.status === "green").length;
   const reds = settled.length - greens;
@@ -141,6 +183,51 @@ export default function GestaoPage() {
     }
   }
 
+  async function registrarMovimento() {
+    if (!userId) return;
+    setErroMovimento(null);
+    const parsed = parseFloat(valorMovimento.replace(",", "."));
+    if (isNaN(parsed) || parsed <= 0) {
+      setErroMovimento("Informe um valor válido, maior que zero.");
+      return;
+    }
+
+    // Aporte e saque são sempre um delta na banca; ajuste é diferente: a pessoa informa o
+    // saldo CORRETO (o número que ela vê na casa de apostas dela agora), e a gente calcula
+    // sozinho a diferença pra registrar como delta — sem isso, ela teria que fazer essa
+    // conta na mão toda vez que a banca dessincronizar por algum motivo fora do app.
+    let delta: number;
+    if (tipoMovimento === "aporte") delta = parsed;
+    else if (tipoMovimento === "saque") delta = -parsed;
+    else delta = parsed - saldoAtual;
+
+    if (tipoMovimento === "ajuste" && delta === 0) {
+      setErroMovimento("Esse já é o saldo atual — nada pra ajustar.");
+      return;
+    }
+
+    setSalvandoMovimento(true);
+    const { data, error } = await supabase
+      .from("banca_movimentos")
+      .insert({
+        user_id: userId,
+        tipo: tipoMovimento,
+        valor: delta,
+        nota: notaMovimento.trim() || null,
+      })
+      .select()
+      .single();
+    setSalvandoMovimento(false);
+
+    if (error) {
+      setErroMovimento("Não deu pra registrar agora. Tenta de novo em alguns segundos.");
+      return;
+    }
+    setMovimentos((prev) => [data as BancaMovimento, ...prev]);
+    setValorMovimento("");
+    setNotaMovimento("");
+  }
+
   if (loading) {
     return <div className="card p-7 text-center text-sm text-text2 max-w-3xl">Carregando…</div>;
   }
@@ -158,7 +245,8 @@ export default function GestaoPage() {
         </div>
         <h1 className="text-2xl font-bold mb-1">Sua banca</h1>
         <p className="text-text2 text-sm">
-          Calculado a partir da sua banca inicial e das operações que você marcou.
+          Calculado a partir da sua banca inicial, das operações que você marcou e dos
+          aportes/saques que você registrar abaixo.
         </p>
       </div>
 
@@ -173,7 +261,11 @@ export default function GestaoPage() {
           <div className="text-xs font-semibold text-text2">SALDO ATUAL</div>
           <div
             className={`font-mono text-2xl font-semibold mt-2.5 ${
-              totalProfit > 0 ? "text-success" : totalProfit < 0 ? "text-danger" : ""
+              saldoAtual - (bancaInicial ?? 0) > 0
+                ? "text-success"
+                : saldoAtual - (bancaInicial ?? 0) < 0
+                ? "text-danger"
+                : ""
             }`}
           >
             {bancaInicial === null ? "—" : `R$ ${saldoAtual.toFixed(2)}`}
@@ -188,6 +280,7 @@ export default function GestaoPage() {
           >
             {performancePct === null ? "—" : `${performancePct >= 0 ? "+" : ""}${performancePct.toFixed(1)}%`}
           </div>
+          <p className="text-[10px] text-muted mt-1">Só considera o lucro das operações, não aportes/saques.</p>
         </div>
       </div>
 
@@ -200,6 +293,89 @@ export default function GestaoPage() {
           </div>
         </div>
         <ProfitChart series={profitSeries} />
+      </div>
+
+      <div className="card p-6">
+        <div className="text-sm font-bold text-text2 mb-3">MOVIMENTAR BANCA</div>
+
+        <div className="inline-flex bg-surface border border-border rounded-[10px] p-1 w-fit mb-3">
+          {(["aporte", "saque", "ajuste"] as BancaMovimentoTipo[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => {
+                setTipoMovimento(t);
+                setErroMovimento(null);
+              }}
+              className={`px-4 py-2 rounded-[7px] text-[12.5px] font-semibold transition-colors ${
+                tipoMovimento === t ? "bg-primary text-white" : "text-text2 hover:text-text"
+              }`}
+            >
+              {MOVIMENTO_LABEL[t]}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2.5">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10.5px] font-semibold text-text2">
+              {tipoMovimento === "ajuste" ? "Qual o saldo correto agora?" : "Valor"}
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted font-mono">
+                R$
+              </span>
+              <input
+                className="input-field pl-8 text-sm font-mono py-2 w-full"
+                value={valorMovimento}
+                onChange={(e) => setValorMovimento(e.target.value.replace(/[^0-9.,]/g, ""))}
+                placeholder="0,00"
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10.5px] font-semibold text-text2">Nota (opcional)</label>
+            <input
+              className="input-field text-sm py-2 w-full"
+              value={notaMovimento}
+              onChange={(e) => setNotaMovimento(e.target.value)}
+              placeholder={
+                tipoMovimento === "aporte"
+                  ? "Ex: depósito na casa"
+                  : tipoMovimento === "saque"
+                  ? "Ex: saque de lucro"
+                  : "Ex: corrigindo diferença"
+              }
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={registrarMovimento}
+              disabled={salvandoMovimento}
+              className="btn-primary text-xs px-4 py-2.5 disabled:opacity-40 w-full sm:w-auto"
+            >
+              {salvandoMovimento ? "Salvando…" : "Registrar"}
+            </button>
+          </div>
+        </div>
+        {erroMovimento && <p className="text-xs text-danger mt-2">{erroMovimento}</p>}
+
+        {movimentos.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-border flex flex-col gap-2 max-h-64 overflow-y-auto">
+            {movimentos.map((m) => (
+              <div key={m.id} className="flex items-center justify-between text-xs gap-2">
+                <div className="min-w-0">
+                  <span className="font-semibold">{MOVIMENTO_LABEL[m.tipo]}</span>
+                  <span className="text-muted"> · {formatData(m.created_at)}</span>
+                  {m.nota && <span className="text-muted truncate"> · {m.nota}</span>}
+                </div>
+                <span className={`font-mono flex-none ${m.valor > 0 ? "text-success" : m.valor < 0 ? "text-danger" : "text-muted"}`}>
+                  {m.valor > 0 ? "+" : ""}
+                  R$ {m.valor.toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>
