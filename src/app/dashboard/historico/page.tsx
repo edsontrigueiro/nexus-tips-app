@@ -7,7 +7,7 @@ import type { Operation, Signal } from "@/lib/types";
 import { temAcessoLiberado } from "@/lib/access";
 
 type OperationRow = Operation & { signals: Signal };
-type Filtro = "todos" | "green" | "red" | "andamento";
+type Filtro = "todos" | "green" | "red" | "andamento" | "cancelada";
 
 function oddEfetiva(op: OperationRow): number {
   return op.odd_obtida ?? op.signals.odd;
@@ -93,11 +93,13 @@ export default function HistoricoPage() {
     andamento: "EM ANDAMENTO",
     green: "GREEN",
     red: "RED",
+    cancelada: "CANCELADA",
   };
   const statusColor: Record<string, string> = {
     andamento: "bg-info/10 border-info text-info",
     green: "bg-success/10 border-success text-success",
     red: "bg-danger/10 border-danger text-danger",
+    cancelada: "bg-muted/10 border-muted text-muted",
   };
 
   const filtros: { id: Filtro; label: string }[] = [
@@ -105,6 +107,7 @@ export default function HistoricoPage() {
     { id: "green", label: "Green" },
     { id: "red", label: "Red" },
     { id: "andamento", label: "Em andamento" },
+    { id: "cancelada", label: "Cancelada" },
   ];
 
   const header = (
