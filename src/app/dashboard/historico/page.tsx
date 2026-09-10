@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Operation, Signal } from "@/lib/types";
+import { temAcessoLiberado } from "@/lib/access";
 
 type OperationRow = Operation & { signals: Signal };
 type Filtro = "todos" | "green" | "red" | "andamento";
@@ -47,14 +48,18 @@ export default function HistoricoPage() {
         return;
       }
 
-      const { data: activeSub } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("status", "ativa")
-        .limit(1)
-        .maybeSingle();
-      const isSubscribed = !!activeSub;
+      const [{ data: activeSub }, { data: profile }] = await Promise.all([
+        supabase
+          .from("subscriptions")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("status", "ativa")
+          .limit(1)
+          .maybeSingle(),
+        supabase.from("profiles").select("role").eq("id", user.id).single(),
+      ]);
+      // Conta admin tem acesso liberado mesmo sem assinatura — ver src/lib/access.ts.
+      const isSubscribed = temAcessoLiberado(profile?.role, !!activeSub);
       setSubscribed(isSubscribed);
 
       if (isSubscribed) {
