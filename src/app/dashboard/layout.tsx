@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/DashboardShell";
 import { OnboardingTutorial } from "@/components/OnboardingTutorial";
+import { temAcessoLiberado } from "@/lib/access";
 
 export default async function DashboardLayout({
   children,
@@ -42,7 +43,7 @@ export default async function DashboardLayout({
       <OnboardingTutorial />
       <DashboardShell
         name={profile?.name || user.email || "Você"}
-        subscribed={!!activeSub}
+        subscribed={temAcessoLiberado(profile?.role, !!activeSub)}
         casaNome={settings?.casa_nome || null}
         casaLink={settings?.casa_link || null}
       >
