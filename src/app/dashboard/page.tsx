@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { temAcessoLiberado } from "@/lib/access";
 
 export default async function VisaoGeralPage() {
   const supabase = createClient();
@@ -8,14 +9,19 @@ export default async function VisaoGeralPage() {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: activeSub } = await supabase
-    .from("subscriptions")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("status", "ativa")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [{ data: activeSub }, { data: profile }] = await Promise.all([
+    supabase
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "ativa")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("profiles").select("role").eq("id", user.id).single(),
+  ]);
+  // Conta admin tem acesso liberado mesmo sem assinatura — ver src/lib/access.ts.
+  const subscribed = temAcessoLiberado(profile?.role, !!activeSub);
 
   const { data: allOperations } = await supabase
     .from("operations")
@@ -65,14 +71,18 @@ export default async function VisaoGeralPage() {
       <div className="card p-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span
-            className={`w-2.5 h-2.5 rounded-full ${activeSub ? "bg-success" : "bg-muted"}`}
+            className={`w-2.5 h-2.5 rounded-full ${subscribed ? "bg-success" : "bg-muted"}`}
           />
           <div>
             <div className="text-sm font-bold">
-              {activeSub ? `Assinatura ativa — ${activeSub.plano}` : "Assinatura inativa"}
+              {activeSub
+                ? `Assinatura ativa — ${activeSub.plano}`
+                : subscribed
+                ? "Acesso liberado — conta admin"
+                : "Assinatura inativa"}
             </div>
             <div className="text-xs text-text2 mt-0.5">
-              {activeSub
+              {subscribed
                 ? "Eventos e marcação de operações liberados."
                 : "Assine um plano para liberar os eventos monitorados."}
             </div>
@@ -142,7 +152,7 @@ export default async function VisaoGeralPage() {
         )}
       </div>
 
-      {activeSub && (
+      {subscribed && (
         <Link
           href="/dashboard/gestao"
           className="card p-5 flex items-center justify-between hover:border-primary/40 transition-colors"
