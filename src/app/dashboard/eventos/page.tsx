@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Signal, SignalLeg, Operation } from "@/lib/types";
 import { sugestaoDoSinal } from "@/lib/sugestao";
+import { temAcessoLiberado } from "@/lib/access";
 
 type SignalRow = Signal & { signal_legs: SignalLeg[] };
 type Filtro = "todos" | "vivo" | "encerrados";
@@ -54,9 +55,10 @@ export default function EventosPage() {
           .eq("status", "ativa")
           .limit(1)
           .maybeSingle(),
-        supabase.from("profiles").select("banca_inicial").eq("id", user.id).single(),
+        supabase.from("profiles").select("banca_inicial, role").eq("id", user.id).single(),
       ]);
-      setSubscribed(!!activeSub);
+      // Conta admin tem acesso liberado mesmo sem assinatura — ver src/lib/access.ts.
+      setSubscribed(temAcessoLiberado(profile?.role, !!activeSub));
       setBancaAtual(profile?.banca_inicial ?? null);
 
       await reloadSignals();
