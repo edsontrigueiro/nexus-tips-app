@@ -42,6 +42,7 @@ export default function AdminSinaisPage() {
     estrategia: ESTRATEGIAS[0],
     rationale: "",
     live: false,
+    horarioJogo: "",
   });
   const [bilheteTitulo, setBilheteTitulo] = useState("");
   const [legs, setLegs] = useState<LegForm[]>([{ ...EMPTY_LEG }, { ...EMPTY_LEG }]);
@@ -119,6 +120,7 @@ export default function AdminSinaisPage() {
       estrategia: ESTRATEGIAS[0],
       rationale: "",
       live: false,
+      horarioJogo: "",
     });
     setBilheteTitulo("");
     setLegs([{ ...EMPTY_LEG }, { ...EMPTY_LEG }]);
@@ -150,6 +152,10 @@ export default function AdminSinaisPage() {
         ? { sugestao_tipo: sugestaoTipo, sugestao_valor: sugestaoValorNum }
         : { sugestao_tipo: null, sugestao_valor: null };
 
+    // datetime-local vem sem timezone (horário local do navegador do admin) — new Date()
+    // interpreta como horário local, igual o resto do app já faz com datas.
+    const horarioJogoIso = form.horarioJogo ? new Date(form.horarioJogo).toISOString() : null;
+
     if (tipo === "simples") {
       // Esse insert é o que faz o sinal aparecer na hora na página Eventos de todo
       // usuário ativo — é a mesma tabela, com Realtime ligado (ver migration).
@@ -162,6 +168,7 @@ export default function AdminSinaisPage() {
         estrategia: form.estrategia,
         rationale: form.rationale || null,
         live: form.live,
+        horario_jogo: horarioJogoIso,
         tipo: "simples",
         casa_nome: casaNome || null,
         casa_link: casaLink || null,
@@ -197,6 +204,7 @@ export default function AdminSinaisPage() {
         estrategia: form.estrategia,
         rationale: form.rationale || null,
         live: form.live,
+        horario_jogo: horarioJogoIso,
         tipo: "bilhete",
         casa_nome: casaNome || null,
         casa_link: casaLink || null,
@@ -233,7 +241,7 @@ export default function AdminSinaisPage() {
     }
   }
 
-  async function atualizarStatus(id: string, status: "green" | "red" | "no_ar") {
+  async function atualizarStatus(id: string, status: "green" | "red" | "no_ar" | "cancelado") {
     setUpdating(id);
     await supabase.from("signals").update({ status }).eq("id", id);
     setUpdating(null);
@@ -338,13 +346,25 @@ export default function AdminSinaisPage() {
               onChange={(e) => setForm({ ...form, competicao: e.target.value })}
               required
             />
-            <div className="flex items-center gap-2 text-xs text-text2">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10.5px] font-semibold text-text2">
+                Horário do jogo (opcional)
+              </label>
+              <input
+                type="datetime-local"
+                className="input-field text-sm py-2"
+                value={form.horarioJogo}
+                onChange={(e) => setForm({ ...form, horarioJogo: e.target.value })}
+              />
+            </div>
+            <div className="flex items-center gap-2 text-xs text-text2 col-span-1 sm:col-span-2">
               <input
                 type="checkbox"
                 checked={form.live}
                 onChange={(e) => setForm({ ...form, live: e.target.checked })}
               />
-              Jogo ao vivo
+              Forçar &quot;ao vivo&quot; agora (sem isso, com o horário preenchido acima o
+              sinal já vira ao vivo sozinho assim que a hora chegar)
             </div>
             <input
               className="input-field"
@@ -404,13 +424,25 @@ export default function AdminSinaisPage() {
                 value={bilheteTitulo}
                 onChange={(e) => setBilheteTitulo(e.target.value)}
               />
-              <div className="flex items-center gap-2 text-xs text-text2">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10.5px] font-semibold text-text2">
+                  Horário do 1º jogo (opcional)
+                </label>
+                <input
+                  type="datetime-local"
+                  className="input-field text-sm py-2"
+                  value={form.horarioJogo}
+                  onChange={(e) => setForm({ ...form, horarioJogo: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center gap-2 text-xs text-text2 col-span-1 sm:col-span-2">
                 <input
                   type="checkbox"
                   checked={form.live}
                   onChange={(e) => setForm({ ...form, live: e.target.checked })}
                 />
-                Algum jogo ao vivo
+                Forçar &quot;ao vivo&quot; agora (sem isso, com o horário preenchido acima
+                o bilhete já vira ao vivo sozinho assim que a hora chegar)
               </div>
             </div>
 
@@ -531,6 +563,17 @@ export default function AdminSinaisPage() {
                           ? `${s.signal_legs?.length || 0} jogos combinados · ODD ${s.odd}`
                           : `${s.time_a} x ${s.time_b} · ${s.mercado} · ODD ${s.odd}`}
                       </div>
+                      {s.horario_jogo && (
+                        <div className="text-[11px] text-muted mt-0.5">
+                          Jogo às{" "}
+                          {new Date(s.horario_jogo).toLocaleString("pt-BR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                      )}
                       {s.tipo === "bilhete" && (
                         <button
                           type="button"
@@ -570,6 +613,17 @@ export default function AdminSinaisPage() {
                         }`}
                       >
                         NO AR
+                      </button>
+                      <button
+                        onClick={() => atualizarStatus(s.id, "cancelado")}
+                        disabled={updating === s.id}
+                        className={`text-[10px] font-bold px-2.5 py-1.5 rounded-lg border ${
+                          s.status === "cancelado"
+                            ? "bg-muted text-bg border-muted"
+                            : "border-muted text-muted"
+                        }`}
+                      >
+                        CANCELADO
                       </button>
                     </div>
                   </div>
