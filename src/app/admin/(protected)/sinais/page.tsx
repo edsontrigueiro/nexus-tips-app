@@ -256,11 +256,20 @@ export default function AdminSinaisPage() {
   // Eventos só recarrega os sinais "no_ar" quando qualquer evento chega).
   async function removerSinal(id: string) {
     setRemoving(id);
-    const { error } = await supabase.from("signals").delete().eq("id", id);
+    // .select() no delete devolve as linhas que realmente foram apagadas. Sem política de
+    // DELETE liberada no Supabase (RLS), o delete "funciona" sem erro mas apaga 0 linhas —
+    // já vimos isso acontecer (ver migration 0011_signals_delete_policy.sql). Por isso não
+    // confiamos só em "!error": se `data` vier vazio, a remoção não aconteceu de verdade.
+    const { data, error } = await supabase.from("signals").delete().eq("id", id).select();
     setRemoving(null);
-    if (!error) {
-      setSignals((prev) => prev.filter((s) => s.id !== id));
+    if (error || !data || data.length === 0) {
+      alert(
+        "Não deu pra remover o sinal — o Supabase recusou a operação. Confira se a migration " +
+          "0011_signals_delete_policy.sql já foi rodada no SQL Editor."
+      );
+      return;
     }
+    setSignals((prev) => prev.filter((s) => s.id !== id));
   }
 
   return (
