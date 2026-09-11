@@ -30,6 +30,7 @@ export default function AdminSinaisPage() {
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [tipo, setTipo] = useState<SignalTipo>("simples");
@@ -245,6 +246,21 @@ export default function AdminSinaisPage() {
     setUpdating(id);
     await supabase.from("signals").update({ status }).eq("id", id);
     setUpdating(null);
+  }
+
+  // Remove o sinal de verdade (não é status "cancelado" — some da tabela). Como
+  // `operations.signal_id` referencia `signals` com `on delete cascade` (0001_init.sql),
+  // qualquer operação que algum usuário já tenha marcado nesse sinal é apagada junto,
+  // sem aviso — decisão explícita do Edson, ciente do trade-off. O canal realtime já
+  // remove o card da lista de todo mundo sozinho (signals tem Realtime ligado e a página
+  // Eventos só recarrega os sinais "no_ar" quando qualquer evento chega).
+  async function removerSinal(id: string) {
+    setRemoving(id);
+    const { error } = await supabase.from("signals").delete().eq("id", id);
+    setRemoving(null);
+    if (!error) {
+      setSignals((prev) => prev.filter((s) => s.id !== id));
+    }
   }
 
   return (
@@ -624,6 +640,14 @@ export default function AdminSinaisPage() {
                         }`}
                       >
                         CANCELADO
+                      </button>
+                      <button
+                        onClick={() => removerSinal(s.id)}
+                        disabled={removing === s.id}
+                        title="Remove o sinal por completo (não fica no histórico de ninguém)"
+                        className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg border border-danger text-danger disabled:opacity-40"
+                      >
+                        {removing === s.id ? "REMOVENDO…" : "REMOVER"}
                       </button>
                     </div>
                   </div>
